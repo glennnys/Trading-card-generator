@@ -1,0 +1,16 @@
+name: Willem ofni
+rarity: Common
+type: chad, musey
+description: Hij wilt
+illustrator: Willem
+entry: 7
+retreat: 2
+hp: 100
+ability 1 name: studeren
+ability 1 desc: Brain become big
+move 1 name: Kaas
+move 1 desc: gooi kaas naar tegenstander
+move 1 cost: 0 none
+move 2 name: moveless
+move 2 desc: no description
+move 2 cost: 0 none

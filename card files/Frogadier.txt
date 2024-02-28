@@ -1,0 +1,12 @@
+name: Frogadier
+rarity: Uncommon
+type: weeb, enginir
+description: no description
+illustrator: no illustrator
+entry: 0
+retreat: 0
+hp: 0
+prev stage: Frogadier
+ability 1 name: ability 1 name
+ability 1 desc: no description
+ability 2 desc: no description

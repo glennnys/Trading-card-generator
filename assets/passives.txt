@@ -1,0 +1,10 @@
+chad: Increase resistance by 10 after taking damage. Expires after not taking damage for one turn.
+enginir: Optional dice roll: 18; exchange one energy for Uber Energy.
+gamer: Take 10 more damage during the day, deal 10 more damage at night.
+homie sexual: If both active cards are homie sexuals, non homie sexual moves deal 10 extra damage.
+imposter: Copies opponent's passive.
+memer: Choose to prevent damage and deal double that damage to a chosen card in your deck.
+musey: Status effects last one turn less.
+smurt: Optional dice roll: 10; deal 10 damage more : deal 10 damage less. 
+sporty: Heal 10 hp if no damage was taken previous turn.
+weeb: Deal 10 damage to active opponent when knocked out.
