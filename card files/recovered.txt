@@ -1,17 +1,12 @@
-name: Sophie
-rarity: Uncommon
-type: sporty, chad
-description: Likes to take vacations
-illustrator: Sophie
-entry: 5
-retreat: 3
-hp: 100
-prev stage: catphie
-ability 1 name: Ollie
-ability 1 desc: Dice roll
-move 1 name: stuff and things
+name: nameless
+hp: 0
+rarity: Unique
+type: neutral
+move 1 name: moveless
 move 1 desc: no description
-move 1 cost: 4 neutral, 1 homie, 1 sporty, 1 weeb, 1 memer
-move 2 name: Leave
-move 2 desc: Cannot take damage for 2 turns, and heals for 40 hp when coming back.
-move 2 cost: 0 none
+move 1 cost: 0 none
+retreat: 0
+entry: 0
+description: bitch lasagne
+illustrator: no illustrator
+crop: 34, 1, 767, 1023

@@ -128,7 +128,10 @@ def set_picture():
         corners = (
             wall_thickness_xy[0], wall_thickness_xy[1], wall_thickness_xy[0] + width, wall_thickness_xy[1] + height)
 
-    set_image('', corners, image_file=values['image'])
+    if 'crop' in values:
+        set_image('', corners, image_file=values['image'].crop(values['crop']))
+    else:
+        set_image('', corners, image_file=values['image'])
 
 
 # sets the background of the card
@@ -526,6 +529,8 @@ def generate_dict(file):
             values['rarity'] = data[1]
         elif contains_data(datatype, illus_array) >= 0:
             values['illustrator'] = data[1]
+        elif contains_data(datatype, ['crop']) >= 0:
+            values['crop'] = [int(value) for value in data[1].replace('(', '').replace(')', '').split(', ')]
     
     if values['name'] + '.png' in os.listdir(inputs_path):
         values['image'] = Image.open(inputs_path + values['name'] + '.png')

@@ -1,15 +1,15 @@
-title: Frickie, the destroyer of worlds
-type: sporty, neutral
+name: Frickie, the destroyer of worlds
+hp: 0
 rarity: common
+type: sporty, neutral
 move 1 name: lick
-move 1 damage: 10 neutral
-move 1 description: lick the baddie, then kill yourself
+move 1 desc: lick the baddie, then kill yourself
 move 1 cost: 2 sporty
-move 2 name: split
-move 2 description: yikers
-move 2 cost: 1 sporty, 1 weeb
-desc: froggy mcFrogface
-hp: 50
-retreat cost: 0
+retreat: 0
 entry: 1
-Illustrator: Glenn
+description: froggy mcFrogface
+illustrator: no illustrator
+crop: (135.0, 47.0, 707.0, 400.3772652388797)
+move 2 name: split
+move 2 desc: yikers
+move 2 cost: 1 sporty, 1 weeb

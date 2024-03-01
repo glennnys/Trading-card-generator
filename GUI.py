@@ -21,138 +21,11 @@ background_color = "#424549"
 text_color = "#99aab5"
 second_background_color = "#36393e"
 
-# save file
-previous_name = ''
-
-allow_save = True
-
-def save_file(overwrite=False, from_close=False, *args):
-    global previous_name
-    global move_count
-    global toggle_move_type_button
-    global values
-
-    window.update()
-
-    values["name"] = name_var.get()
-    if values["name"] == '': values["name"] = 'nameless'
-    if evo_var.get() != '': values["prev stage"] = evo_var.get()
-
-    values["rarity"] = rarity_var.get()
-
-    if (type_var.get() == type_var2.get() and type_var.get() != 'none') or (type_var2.get() == 'none'):
-        values['type'] = [type_var.get()]
-    elif type_var.get() == 'none' and type_var2.get() != 'none':
-        values['type'] = [type_var2.get()]
-    else:
-        values['type'] = [type_var.get(), type_var2.get()]
-
-    values["description"] = desc_var.get()
-    if values["description"] == '': values["description"] = 'bitch lasagna'
-    values["illustrator"] = illustrator_var.get()
-    if values["illustrator"] == '': values["illustrator"] = 'no illustrator'
-    values["entry"] = index_var.get()
-    if values["entry"] == '': values["entry"] = '0'
-    values["retreat"] = retreat_var.get()
-    if values["retreat"] == '': values["retreat"] = '0'
-    values["hp"] = hp_var.get()
-    if values["hp"] == '': values["hp"] = '0'
-    if 'image' not in values:
-        values['image'] = Image.open(assets_path + "nameless.jpg")
-
-    abilities = 0
-    moves = 0
-    for nr in range(0, limit):  
-        if toggle_move_type_button[nr]['text'] == 'Move':
-            moves += 1
-            if nr>=move_count:
-                values.pop(f"move {moves} name", None)
-                values.pop(f"move {moves} damage", None)
-                values.pop(f"move {moves} desc", None) 
-                values.pop(f"move {moves} cost", None)
-                continue
-            values[f"move {moves} name"] = move_var[nr].get()
-            if values[f"move {moves} name"] == '': values[f"move {moves} name"] = 'moveless'
-            if damage_var[nr].get() != "0" and damage_var[nr].get() != '':
-                values[f"move {moves} damage"] = str(damage_var[nr].get()) + " " + damage_type_var[nr].get()
-            else:
-                values.pop(f"move {moves} damage", None)
-            values[f"move {moves} desc"] = move_desc_var[nr].get()
-            if values[f"move {moves} desc"] == '': values[f"move {moves} desc"] = 'no description'
-            
-            values[f"move {moves} cost"] = []
-            for index in range(len(moods)-1):
-                if move_costs[nr][moods[index]] != 0:
-                    values[f"move {moves} cost"].append(str(move_costs[nr][moods[index]]) + " " + moods[index])
-            if values[f"move {moves} cost"] == []: values[f"move {moves} cost"].append('0 none')
-
-        if toggle_move_type_button[nr]['text'] == 'Ability':
-            abilities += 1
-            if nr>=move_count:
-                values.pop(f"ability {abilities} name", None)
-                values.pop(f"ability {abilities} desc", None)   
-                continue
-            values[f"ability {abilities} name"] = move_var[nr].get()
-            if values[f"ability {abilities} name"] == '': values[f"ability {abilities} name"] = 'abilityless'
-            values[f"ability {abilities} desc"] = move_desc_var[nr].get()
-            if values[f"ability {abilities} desc"] == '': values[f"ability {abilities} desc"] = 'no description'
-
-    for nr in range(0, limit):
-        moves += 1
-        abilities += 1
-        values.pop(f"move {moves} name", None)
-        values.pop(f"move {moves} damage", None)
-        values.pop(f"move {moves} desc", None)
-        values.pop(f"move {moves} cost", None)
-        values.pop(f"ability {abilities} name", None)
-        values.pop(f"ability {abilities} desc", None)        
-
-    if allow_save or overwrite:
-        if values['name'] not in ('', ' '):
-            if from_close:
-                f = open(file_path + 'recovered.txt', "w+")
-            else: f = open(file_path + values['name'] + '.txt', "w+")
-            for key in values:
-                if key == 'image': continue
-                if type(values[key]) == list:
-                    f.write(f'{key}: {values[key][0]}')
-                    for i in range(1, len(values[key])):
-                        f.write(f', {values[key][i]}')
-                    f.write('\n')
-                else: f.write(f'{key}: {values[key]}\n')
-            f.close()
-            if 'image' in values and (overwrite or from_close):
-                values['image'].save(file_path + values['name'] + '.png')
-
-        if previous_name != '' and previous_name != values['name']: os.remove(file_path + previous_name + '.txt')
-        previous_name = values["name"]
-        
-    update_preview()
-
-
-def on_closing():
-    try: save_file(True, True)
-    except: "error saving file"
-    window.destroy()
-
-def toggle_auto_save(state = None):
-    global allow_save
-    if state != None:
-        allow_save = not state
-
-    if allow_save:
-        enable_auto_save.config(text="Auto save Off")
-        allow_save = not allow_save
-    else:
-        enable_auto_save.config(text="Auto save On")
-        allow_save = not allow_save
-
-
 # functions
 move_count = 1
 limit = 3
 
-def update_canvas(update=True):
+def update_canvas():
     global move_count
     global limit
     global ind_move_frame
@@ -163,102 +36,171 @@ def update_canvas(update=True):
     height = mainframe.winfo_height()
     scroll_canvas.configure(scrollregion=(0, 0, width, height)) 
 
-    if update: save_file()
-
-
-def add_move(update=True):
-    global move_count
-    global limit
-    global ind_move_frame
-    
-    if move_count < limit:
-        move_count += 1
-        mainframe.rowconfigure(3,weight=move_count*3)
-        ind_move_frame[move_count - 1].pack(expand=True, fill=BOTH)
-
-    if update: update_canvas()
-
-
-def subtract_move(update=True):
-    global move_count
-    global limit
-    global ind_move_frame
-    
-    if move_count > 1:
-        move_count -= 1
-        mainframe.rowconfigure(3,weight=move_count*3)
-        ind_move_frame[move_count].pack_forget()
-
-    if update: update_canvas()
-
-
-def toggle_button_type(nr, update=True):
-    global toggle_move_type_button
-
-    if toggle_move_type_button[nr]['text'] == 'Move':
-        toggle_move_type_button[nr].config(text='Ability')
-        move_damage_frame[nr].pack_forget()
-        move_type_frame[nr].pack_forget()
-        move_cost_frame[nr].pack_forget()
-        selected_cost_frame[nr].pack_forget()
+def character_limit(entry_text, power, max=0): # only allow numbers in field
+    # remove non-numeric characters and leading zeros. Round to the nearest power of ten given by the power.
+    if '.' in entry_text.get():
+        value = entry_text.get().split('.')[0]
     else:
-        toggle_move_type_button[nr].config(text='Move')
-        move_damage_frame[nr].pack(expand=True, fill=BOTH)
-        move_type_frame[nr].pack(expand=True, fill=BOTH)
-        move_cost_frame[nr].pack(expand=True, fill=BOTH)
-        selected_cost_frame[nr].pack(expand=True, fill=BOTH)
+        value = entry_text.get()
 
-    ability_number = 0
-    move_number = 0
-    for j in range(0, limit):
-        if toggle_move_type_button[j]['text'] == 'Ability':
-            ability_number += 1
-            move_description_label[j].config(text="Ability " + str(ability_number) + " description:")
-            move_name_label[j].config(text=str(ability_number) + " name:")
-        else:
-            move_number += 1
-            move_description_label[j].config(text="Move " + str(move_number) + " description:")
-            move_damage_label[j].config(text="Move " + str(move_number) + " damage:")
-            move_name_label[j].config(text=str(move_number) + " name:")
-            move_cost_label[j].config(text="Move " + str(move_number) + " cost:")
-            move_type_label[j].config(text="Move " + str(move_number) + " type:")
+    value = re.sub(r'^0+', '', value)
+    value = re.sub(r'\D', '', value)
+
+    if value == '': value = '0'
+    value = int(value)    
+
+    if len(str(value)) == 1:
+        value = value * 10**power
+    else:
+        value = int(round(value, -power))
+
+    value = str(value)
+    if value != '0': entry_text.set(re.sub(r'^0+', '', value))
+    else: entry_text.set('0')
+    if max != 0 and int(value) > max: entry_text.set(str(max))
+
+    update_preview()
+
+def resize_font(incr):
+    '''Change the size of SunValley fonts by the incr factor '''
+    for font_name in (
+        "Caption", "Body", "BodyStrong", "BodyLarge",
+        "Subtitle", "Title", "TitleLarge", "Display"
+    ):
+        font = nametofont(f"SunValley{font_name}Font")
+        size = font.cget("size")
+        font.configure(size=size-incr)
+
+def update_preview():
+    global values
+    global picture_frame
+    global photo
+    global preview_label
     
-    if update: update_canvas()
+    height = window.winfo_height()
+
+    image = main.generate_card_from_values(values, editor_mode=True)
+    scale = height/image.height
+    image = image.resize((int(image.width*scale), int(image.height*scale)), resample=0)
+    photo = ImageTk.PhotoImage(image)
+    preview_label['image'] = photo
+
+    #resize to fit preview
+    window.update()
+    width = mainframe.winfo_width()+scrollbar.winfo_width()+picture_frame.winfo_width()
+    window.geometry(f"{width}x{height}")
 
 
-def move_cost_update(nr, index, update=True):
-    global move_costs
-    global moods
-    global total_cost
+def update_size():
+    update_canvas()
+    update_preview()
+    return
 
-    if index != len(moods)-1 and total_cost[nr] < 8:
-        total_cost[nr] += 1
-        move_costs[nr][moods[index]] = int(move_costs[nr][moods[index]])+1
 
-        btn = ttk.Button(selected_cost_frame[nr], takefocus=False, image=types_dict[moods[index]])
-        move_cost_buttons.append(btn)
-        btn['command'] = lambda button=btn, a=nr, type=moods[index]: remove_button(button, nr, type)
-        btn.pack(side=LEFT)
+######### Window #########
+window = Tk()
+style = ttk.Style()
+sv_ttk.set_theme("dark")
 
-        if update: update_canvas()
+window_id = "card.generator.window"  # will only work once compiled I think
+ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(window_id)
 
-def remove_button(button, nr, type, update=True):
-    global move_costs
-    global total_cost
+small_font = Font(family='Roboto', size=10, weight='bold')
+mid_font = Font(family='Roboto', size=15, weight='bold')
+big_font = Font(family='Roboto', size=20, weight='bold')
 
-    total_cost[nr] -= 1
-    move_costs[nr][type] = int(move_costs[nr][type])-1
-    button.destroy()
+window.title("Card generator")
 
-    if update: update_canvas()
+icon = PhotoImage(file=assets_path + "Energy neutral.png")
+window.iconphoto(True, icon)
+window.config(background=background_color)
 
+
+########## Initiate values ##########
+values['name'] = 'nameless'
+values['hp'] = '0'
+values['rarity'] = 'Common'
+values['type'] = ['neutral']
+values['move 1 name'] = 'moveless'
+values['move 1 desc'] = 'no description'
+values['move 1 cost'] = ['0 none']
+values['retreat'] = '0'
+values['entry'] = '0'
+values['description'] = 'bitch lasagne'
+values['illustrator'] = 'no illustrator'
+values['image'] = Image.open(f'{assets_path}nameless.jpg')
+
+################ GUI starts here ################
+outer_frame = Frame(window, background=background_color)
+outer_frame.pack(fill=BOTH, expand=True)
+
+resize_font(2)
+borderwidth = 5
+padding = 2
+row = 0
+
+
+########## Scrollable canvas ##########
+scroll_canvas = Canvas(outer_frame, background=background_color)
+scroll_canvas.grid(row=0, column=0, sticky=NSEW)
+
+scrollbar = ttk.Scrollbar(outer_frame,
+                       orient=VERTICAL, 
+                       command=scroll_canvas.yview)
+scrollbar.grid(row=0, column=1, sticky=NS)
+
+scroll_canvas.configure(yscrollcommand=scrollbar.set)
+scroll_canvas.bind(
+    '<Configure>', lambda e: scroll_canvas.configure(scrollregion=scroll_canvas.bbox("all"))
+)
+
+def on_mousewheel(event):
+    scroll_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+
+
+scroll_canvas.bind_all("<MouseWheel>", on_mousewheel)
+
+
+mainframe = ttk.Frame(scroll_canvas)
+scroll_canvas.create_window((0, 0), window=mainframe, anchor=NW)
+
+
+########## Preview frame ##########
+picture_frame = ttk.Frame(outer_frame)
+picture_frame.grid(row=0, column=2, sticky=NSEW)
+
+preview_label = ttk.Label(picture_frame, borderwidth=borderwidth)
+preview_label.pack(expand=True, fill=BOTH)
+
+
+########## Title ##########
+# sets width of the entire frame
+filler_frame = ttk.Frame(mainframe, padding=padding)
+filler_frame.grid(row=row, column=0, sticky=NSEW)
+mainframe.rowconfigure(row,weight=1)
+mainframe.columnconfigure(0,weight=1)
+row += 1
+
+filler_label = ttk.Label(filler_frame, text="Card generator", font=big_font,
+                        borderwidth=borderwidth, anchor=CENTER, width=50).pack(expand=True, fill=BOTH, side='left')
+
+
+########## Open existing file ##########
+existing_frame = ttk.Frame(mainframe, padding=padding)
+existing_frame.grid(row=row, column=0, sticky=NSEW)
+mainframe.rowconfigure(row,weight=1)
+mainframe.columnconfigure(0,weight=1)
+row += 1
+
+# open existing file text
+ttk.Label(existing_frame, text="Open existing file:", borderwidth=borderwidth).pack(expand=True, fill=BOTH, side='left')
+
+# open existing file button
 def open_file():
     global allow_save
     global move_count
-    global image
-    global card_image
 
-    allow_save = toggle_auto_save(False)
+    toggle_auto_save(False)
 
     use_this_path = filedialog.askopenfilename(initialdir=f"{os.getcwd()}\\{file_path}", title="Select file", filetypes=(("text files", "*.txt"), ("all files", "*.*")))
     if use_this_path == '': return
@@ -268,14 +210,17 @@ def open_file():
 
     if 'name' in old_values and old_values['name'] != '':
         name_var.set(old_values['name'])
-        card_image = Image.open(file_path + name_var.get() + '.png')
-        scale = card_image.width/mainframe.winfo_width()
-        card_image = card_image.resize((int(card_image.width/scale), int(card_image.height/scale)), resample=0)
-        canvas.config(width=card_image.width, height=card_image.height)
-        localphoto = ImageTk.PhotoImage(card_image)
-        canvas.itemconfig(image, image=localphoto)
-        canvas.image = localphoto
-        values['image'] = card_image
+        if f'file_path + {name_var.get()}.png' in os.listdir(file_path):
+            import_image(f'file_path + {name_var.get()}.png')
+        elif f'file_path + {name_var.get()}.jpg' in os.listdir(file_path):
+            import_image(f'file_path + {name_var.get()}.jpg')
+        else:
+            import_image(f'{assets_path}nameless.jpg')
+
+        if 'crop' in old_values and old_values['crop'] != '':
+            values['crop'] = old_values['crop']
+            canvas.coords(rect, values['crop'][0], values['crop'][1], values['crop'][2], values['crop'][3])
+
     if 'prev stage' in old_values and old_values['prev stage'] != '':
         evo_var.set(old_values['prev stage'])
     if 'rarity' in old_values and old_values['rarity'] != '':
@@ -355,195 +300,114 @@ def open_file():
         for nr in range(old_move_count, move_count):
             subtract_move(False)
 
-    update_canvas(False)
+    update_canvas()
 
-def character_limit(entry_text, power, max=0): # only allow numbers in field
-    # remove non-numeric characters and leading zeros. Round to the nearest power of ten given by the power.
-    if '.' in entry_text.get():
-        value = entry_text.get().split('.')[0]
-    else:
-        value = entry_text.get()
-
-    value = re.sub(r'^0+', '', value)
-    value = re.sub(r'\D', '', value)
-
-    if value == '': value = '0'
-    value = int(value)    
-
-    if len(str(value)) == 1:
-        value = value * 10**power
-    else:
-        value = int(round(value, -power))
-
-    value = str(value)
-    if value != '0': entry_text.set(re.sub(r'^0+', '', value))
-    else: entry_text.set('0')
-    if max != 0 and int(value) > max: entry_text.set(str(max))
-    save_file()
-
-def resize_font(incr):
-    '''Change the size of SunValley fonts by the incr factor '''
-    for font_name in (
-        "Caption", "Body", "BodyStrong", "BodyLarge",
-        "Subtitle", "Title", "TitleLarge", "Display"
-    ):
-        font = nametofont(f"SunValley{font_name}Font")
-        size = font.cget("size")
-        font.configure(size=size-incr)
-
-def update_preview():
-    global values
-    global picture_frame
-    global photo
-    global preview_label
-    global assets_path
-    
-    height = window.winfo_height()
-
-    image = main.generate_card_from_values(values, editor_mode=True)
-    scale = height/image.height
-    image = image.resize((int(image.width*scale), int(image.height*scale)), resample=0)
-    photo = ImageTk.PhotoImage(image)
-    preview_label['image'] = photo
-
-    #resize to fit preview
-    window.update()
-    width = mainframe.winfo_width()+scrollbar.winfo_width()+picture_frame.winfo_width()
-    window.geometry(f"{width}x{height}")
-
-
-def update_size():
-    return
-
-
-# Window
-window = Tk()
-style = ttk.Style()
-sv_ttk.set_theme("dark")
-
-window_id = "card.generator.window"  # will only work once compiled I think
-ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(window_id)
-
-small_font = Font(family='Roboto', size=10, weight='bold')
-mid_font = Font(family='Roboto', size=15, weight='bold')
-big_font = Font(family='Roboto', size=20, weight='bold')
-
-window.title("Card generator")
-
-icon = PhotoImage(file=assets_path + "Energy neutral.png")
-window.iconphoto(True, icon)
-window.config(background=background_color)
-
-outer_frame = Frame(window, background=background_color)
-outer_frame.pack(fill=BOTH, expand=True)
-
-scroll_canvas = Canvas(outer_frame, background=background_color)
-scroll_canvas.grid(row=0, column=0, sticky=NSEW)
-
-scrollbar = ttk.Scrollbar(outer_frame,
-                       orient=VERTICAL, 
-                       command=scroll_canvas.yview)
-scrollbar.grid(row=0, column=1, sticky=NS)
-
-scroll_canvas.configure(yscrollcommand=scrollbar.set)
-scroll_canvas.bind(
-    '<Configure>', lambda e: scroll_canvas.configure(scrollregion=scroll_canvas.bbox("all"))
-)
-
-def on_mousewheel(event):
-    scroll_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-
-
-scroll_canvas.bind_all("<MouseWheel>", on_mousewheel)
-
-
-mainframe = ttk.Frame(scroll_canvas)
-scroll_canvas.create_window((0, 0), window=mainframe, anchor=NW)
-
-picture_frame = ttk.Frame(outer_frame)
-picture_frame.grid(row=0, column=2, sticky=NSEW)
-
-# GUI
-resize_font(2)
-borderwidth = 5
-padding = 2
-row = 0
-
-# picture frame
-preview_label = ttk.Label(picture_frame, borderwidth=borderwidth)
-preview_label.pack(expand=True, fill=BOTH)
-
-
-# mainframe
-# filler frame to set width of mainframe
-filler_frame = ttk.Frame(mainframe, padding=padding)
-filler_frame.grid(row=row, column=0, sticky=NSEW)
-mainframe.rowconfigure(row,weight=1)
-mainframe.columnconfigure(0,weight=1)
-row += 1
-
-# filler label
-filler_label = ttk.Label(filler_frame, text="Card generator", font=big_font,
-                        borderwidth=borderwidth, anchor=CENTER, width=50)
-filler_label.grid(row=0, column=0, sticky=NSEW)
-filler_frame.columnconfigure(0,weight=1)
-
-# open existing file
-existing_frame = ttk.Frame(mainframe, padding=padding)
-existing_frame.grid(row=row, column=0, sticky=NSEW)
-mainframe.rowconfigure(row,weight=1)
-mainframe.columnconfigure(0,weight=1)
-row += 1
-
-ttk.Label(existing_frame, text="Open existing file:", borderwidth=borderwidth).grid(row=0, column=0, sticky=NSEW)
-existing_frame.columnconfigure(0,weight=1)
-existing_frame.rowconfigure(0,weight=1)
 
 open_file_button = ttk.Button(existing_frame, text="Open", command=open_file, takefocus=False)
-open_file_button.grid(row=0, column=1, sticky=NSEW)
-existing_frame.columnconfigure(1,weight=1)
-existing_frame.rowconfigure(0,weight=1)
+open_file_button.pack(expand=True, fill=BOTH, side='left')
 
+# enable auto save button
+allow_save = False
+def toggle_auto_save(state = None):
+    global allow_save
+    if state != None:
+        allow_save = not state
+
+    if allow_save:
+        enable_auto_save.config(text="Auto save Off")
+        allow_save = not allow_save
+    else:
+        enable_auto_save.config(text="Auto save On")
+        allow_save = not allow_save
+        save_file()
+
+running = True
+def auto_save():
+    while running:
+        if allow_save:
+            save_file()
+        sleep_event.wait(timeout=10)
+        
 enable_auto_save = ttk.Button(existing_frame, text="Auto save On", command=toggle_auto_save, takefocus=False)
-enable_auto_save.grid(row=0, column=2, sticky=NSEW)
-existing_frame.columnconfigure(2,weight=1)
-existing_frame.rowconfigure(0,weight=1)
+enable_auto_save.pack(expand=True, fill=BOTH, side='left')
 
-force_save = ttk.Button(existing_frame, text="Save", command=lambda: save_file(True, False), takefocus=False)
-force_save.grid(row=0, column=3, sticky=NSEW)
-existing_frame.columnconfigure(3,weight=1)
-existing_frame.rowconfigure(0,weight=1)
+auto_save_thread = threading.Thread(target=auto_save)
+sleep_event = threading.Event()
+auto_save_thread.start()
 
-# name
+# save button
+previous_name = ''
+def save_file(from_close=False):
+    global previous_name
+    global values
+
+    window.update()
+    if values['name'] not in ('', ' '):
+        path = ''
+        if from_close: path = file_path + 'recovered.txt'
+        else: path = file_path + values['name'] + '.txt'
+        try:
+            f = open(path, "w+")
+        except:
+            # catch error for whatever reason
+            return
+        
+        # save values to file
+        for key in values:
+            if key == 'image': continue
+            if type(values[key]) == list:
+                f.write(f'{key}: {values[key][0]}')
+                for i in range(1, len(values[key])):
+                    f.write(f', {values[key][i]}')
+                f.write('\n')
+            else: f.write(f'{key}: {values[key]}\n')
+        f.close()
+
+    # remove previous file if name changed
+    if previous_name != '' and previous_name != values['name']: os.remove(file_path + previous_name + '.txt')
+    previous_name = values["name"]
+
+force_save = ttk.Button(existing_frame, text="Save", command=lambda: save_file(), takefocus=False)
+force_save.pack(expand=True, fill=BOTH, side='left')
+
+
+########## Name frame ##########
 name_frame = ttk.Frame(mainframe, padding=padding)
 name_frame.grid(row=row, column=0, sticky=NSEW)
 mainframe.rowconfigure(row,weight=1)
-mainframe.columnconfigure(0,weight=1)
 row += 1
 
+# name label
 card_name = ttk.Label(name_frame, text="Card name:", borderwidth=borderwidth)
-card_name.grid(row=0, column=0, sticky=NSEW)
-name_frame.columnconfigure(0,weight=1)
-name_frame.rowconfigure(0,weight=1)
+card_name.pack(expand=True, fill=BOTH, side='left')
 
+# name change function
+def change_name():
+    values['name'] = name_var.get()
+    if values['name'] == '': values['name'] = 'nameless'
+    update_preview()
+
+# name entry
 name_var = StringVar()
 name_entry = ttk.Entry(name_frame, textvariable=name_var, takefocus=False)
-name_entry.grid(row=0, column=1, sticky=NSEW)
-name_frame.columnconfigure(1,weight=4)
-name_frame.rowconfigure(0,weight=1)
-name_var.trace_add('write', lambda *args: save_file(False, False, *args))
+name_entry.pack(expand=True, fill=BOTH, side='left')
+name_var.trace_add('write', lambda *args: change_name())
 
 
-# hp
+########## HP frame ##########   
 hp_label = ttk.Label(name_frame, text="HP:", borderwidth=borderwidth)
-hp_label.grid(row=0, column=2, sticky=NSEW)
-name_frame.columnconfigure(2,weight=2)
-name_frame.rowconfigure(0,weight=1)
+hp_label.pack(expand=True, fill=BOTH, side='left')
 
+# hp change function
+def change_hp():
+    values['hp'] = hp_var.get()
+    if values['hp'] == '': values['hp'] = '0'
+    update_preview()
+
+# hp entry and limiter
 hp_var = StringVar()
 spin = ttk.Entry(name_frame, textvariable=hp_var, width=3, takefocus=False)
-spin.grid(row=0, column=3, sticky=NSEW)
-name_frame.columnconfigure(3, weight=1)
+spin.pack(expand=True, fill=BOTH, side='left')
 hp_var.trace_add('write', lambda *args: character_limit(hp_var, 1, 500))
 
 hp_entry = classes.Limiter(name_frame,
@@ -554,67 +418,67 @@ hp_entry = classes.Limiter(name_frame,
                           to=500,
                           precision=1)
 
-hp_entry.grid(row=0, column=4, sticky=NSEW)
-name_frame.columnconfigure(4,weight=2)
+hp_entry.pack(expand=True, fill=BOTH, side='left')
 
-# evolution
+
+########## Evolution frame ##########
 evo_frame = ttk.Frame(mainframe, padding=padding)
 evo_frame.grid(row=row, column=0, sticky=NSEW)
 mainframe.rowconfigure(row,weight=1)
-mainframe.columnconfigure(0,weight=1)
 row += 1
 
+# evo label
 evo_name = ttk.Label(evo_frame, text="Previous stage name:", borderwidth=borderwidth)
-evo_name.grid(row=0, column=0, sticky=NSEW)
-evo_frame.columnconfigure(0,weight=1)
-evo_frame.rowconfigure(0,weight=1)
+evo_name.pack(expand=True, fill=BOTH, side='left')
 
+# evo change function
+def change_evo():
+    values['prev stage'] = evo_var.get()
+    if values['prev stage'] == '': values.pop('prev stage', None)
+    update_preview()
+
+# evo entry
 evo_var = StringVar()
 evo_entry = ttk.Entry(evo_frame, textvariable=evo_var, takefocus=False)
-evo_entry.grid(row=0, column=1, sticky=NSEW)
-evo_frame.columnconfigure(1,weight=4)
-evo_frame.rowconfigure(0,weight=1)
-evo_var.trace_add('write', lambda *args: save_file(False, False, *args))
+evo_entry.pack(expand=True, fill=BOTH, side='left')
+evo_var.trace_add('write', lambda *args: save_file())
 
-# rarity
+
+########## Rarity frame ##########
+rarity_frame = ttk.Frame(mainframe, padding=padding)
+rarity_frame.grid(row=row, column=0, sticky=NSEW)
+mainframe.rowconfigure(row,weight=1)
+row += 1
 
 tiers = ["Common", "Uncommon", "Rare", "Unique"]
 x = IntVar()
 
-rarity_frame = ttk.Frame(mainframe, padding=padding)
-rarity_frame.grid(row=row, column=0, sticky=NSEW)
-mainframe.rowconfigure(row,weight=1)
-mainframe.columnconfigure(0,weight=1)
-row += 1
+# rarity label
+ttk.Label(rarity_frame, text="Rarity:", borderwidth=borderwidth).pack(expand=True, fill=BOTH, side='left')
 
-ttk.Label(rarity_frame, text="Rarity:", borderwidth=borderwidth).grid(column=0, row=0, sticky=NSEW)
-rarity_frame.columnconfigure(0,weight=1)
-rarity_frame.rowconfigure(0,weight=1)
+# rarity change function
+def change_rarity():
+    values["rarity"] = rarity_var.get()
+    update_preview()
 
+# rarity buttons
 rarity_var = StringVar()
 rarity_var.set(tiers[0])
-
 for index in range(len(tiers)):
     rarity_select = ttk.Radiobutton(rarity_frame,
                               text=tiers[index],
                               variable=rarity_var,
                               value=tiers[index]
                               )
-    rarity_select.grid(row=0, column=index+1, sticky=NSEW)
-    rarity_frame.columnconfigure(index+1,weight=1)
-    rarity_frame.rowconfigure(0,weight=1)
-rarity_var.trace_add('write', lambda *args: save_file(False, False, *args))
+    rarity_select.pack(expand=True, fill=BOTH, side='left')
+rarity_var.trace_add('write', lambda *args: change_rarity())
 
-# type 1
+
+########## Card type frame ##########
 type_frame = ttk.Frame(mainframe, padding=padding)
 type_frame.grid(row=row, column=0, sticky=NSEW)
 mainframe.rowconfigure(row,weight=1)
-mainframe.columnconfigure(0,weight=1)
 row +=1
-
-ttk.Label(type_frame, text="Type 1:", borderwidth=borderwidth).grid(column=0, row=0, sticky=NSEW)
-type_frame.columnconfigure(0,weight=1)
-type_frame.rowconfigure(0,weight=1)
 
 moods = ['neutral', 'gamer', 'smurt', 'homie', 'enginir', 'sporty', 'weeb', 'memer', 'imposter',
               'chad', 'musey', 'none']
@@ -625,6 +489,21 @@ type_var.set(moods[0])
 
 type_images = []
 resized_images = []
+
+def change_type():
+    if (type_var.get() == type_var2.get() and type_var.get() != 'none') or (type_var2.get() == 'none'):
+        values['type'] = [type_var.get()]
+    elif type_var.get() == 'none' and type_var2.get() != 'none':
+        values['type'] = [type_var2.get()]
+    else:
+        values['type'] = [type_var.get(), type_var2.get()]
+    update_preview()
+
+# type 1 label
+ttk.Label(type_frame, text="Type 1:", borderwidth=borderwidth).grid(column=0, row=0, sticky=NSEW)
+type_frame.columnconfigure(0,weight=1)
+
+# type 1 buttons
 type_icons = []
 type_select = []
 for index in range(len(moods)):
@@ -649,14 +528,12 @@ for index in range(len(moods)):
     type_select[index].grid(row=0, column=index+1, sticky=NSEW)
     type_frame.columnconfigure(index+1,weight=1)
     type_frame.rowconfigure(0,weight=1)
-type_var.trace_add('write', lambda *args: save_file(False, False, *args))
+type_var.trace_add('write', lambda *args: change_type())
 
-
-# type 2
+# type 2 label
 ttk.Label(type_frame, text="Type 2:", borderwidth=borderwidth).grid(column=0, row=1, sticky=NSEW)
-type_frame.columnconfigure(0,weight=1)
-type_frame.rowconfigure(1,weight=1)
 
+# type 2 buttons
 type2_select = []
 type_var2 = StringVar()
 type_var2.set(moods[-1])
@@ -675,22 +552,47 @@ for index in range(len(moods)):
     type2_select[index].grid(row=1, column=index+1, sticky=NSEW)
     type_frame.columnconfigure(index+1,weight=1)
     type_frame.rowconfigure(1,weight=1)
-type_var2.trace_add('write', lambda *args: save_file(False, False, *args))
+type_var2.trace_add('write', lambda *args: change_type())
 
-# moves
+
+############### Moves frame ###############
 add_subtract_frame = ttk.Frame(mainframe, padding=padding)
 add_subtract_frame.grid(row=row, column=0, sticky=NSEW)
 mainframe.rowconfigure(row,weight=1)
-mainframe.columnconfigure(0,weight=1)
 row += 1
 
-ttk.Button(add_subtract_frame, text="+", command=add_move, takefocus=False).grid(row=0, column=0, sticky=NSEW)
-add_subtract_frame.columnconfigure(0,weight=1)
-add_subtract_frame.rowconfigure(0,weight=1)
+def add_move(update=True):
+    global move_count
+    global limit
+    global ind_move_frame
+    
+    if move_count < limit:
+        move_count += 1
+        mainframe.rowconfigure(3,weight=move_count*3)
+        ind_move_frame[move_count - 1].pack(expand=True, fill=BOTH)
 
-ttk.Button(add_subtract_frame, text="-", command=subtract_move, takefocus=False).grid(row=0, column=1, sticky=NSEW)
-add_subtract_frame.columnconfigure(1,weight=1)
+    change_moves()
+    if update: update_canvas()
 
+
+def subtract_move(update=True):
+    global move_count
+    global limit
+    global ind_move_frame
+    
+    if move_count > 1:
+        move_count -= 1
+        mainframe.rowconfigure(3,weight=move_count*3)
+        ind_move_frame[move_count].pack_forget()
+
+    change_moves()
+    if update: update_canvas()
+
+# buttons to add and subtract moves
+ttk.Button(add_subtract_frame, text="+", command=add_move, takefocus=False).pack(expand=True, fill=BOTH, side='left')
+ttk.Button(add_subtract_frame, text="-", command=subtract_move, takefocus=False).pack(expand=True, fill=BOTH, side='left')
+
+# move variables
 move_var = []
 damage_var = []
 damage_type_var = []
@@ -723,16 +625,134 @@ move_type_frame = []
 move_cost_frame = []
 selected_cost_frame = []
 
+# change moves function
+def change_moves(): # save moves and abilities to values
+    
+    abilities = 0
+    moves = 0
+    for nr in range(0, limit):  
+        if toggle_move_type_button[nr]['text'] == 'Move':
+            moves += 1
+            if nr>=move_count:
+                values.pop(f"move {moves} name", None)
+                values.pop(f"move {moves} damage", None)
+                values.pop(f"move {moves} desc", None) 
+                values.pop(f"move {moves} cost", None)
+                continue
+            values[f"move {moves} name"] = move_var[nr].get()
+            if values[f"move {moves} name"] == '': values[f"move {moves} name"] = 'moveless'
+            if damage_var[nr].get() != "0" and damage_var[nr].get() != '':
+                values[f"move {moves} damage"] = str(damage_var[nr].get()) + " " + damage_type_var[nr].get()
+            else:
+                values.pop(f"move {moves} damage", None)
+            values[f"move {moves} desc"] = move_desc_var[nr].get()
+            if values[f"move {moves} desc"] == '': values[f"move {moves} desc"] = 'no description'
+            
+            values[f"move {moves} cost"] = []
+            for index in range(len(moods)-1):
+                if move_costs[nr][moods[index]] != 0:
+                    values[f"move {moves} cost"].append(str(move_costs[nr][moods[index]]) + " " + moods[index])
+            if values[f"move {moves} cost"] == []: values[f"move {moves} cost"].append('0 none')
+
+        if toggle_move_type_button[nr]['text'] == 'Ability':
+            abilities += 1
+            if nr>=move_count:
+                values.pop(f"ability {abilities} name", None)
+                values.pop(f"ability {abilities} desc", None)   
+                continue
+            values[f"ability {abilities} name"] = move_var[nr].get()
+            if values[f"ability {abilities} name"] == '': values[f"ability {abilities} name"] = 'abilityless'
+            values[f"ability {abilities} desc"] = move_desc_var[nr].get()
+            if values[f"ability {abilities} desc"] == '': values[f"ability {abilities} desc"] = 'no description'
+
+    for nr in range(0, limit):
+        moves += 1
+        abilities += 1
+        values.pop(f"move {moves} name", None)
+        values.pop(f"move {moves} damage", None)
+        values.pop(f"move {moves} desc", None)
+        values.pop(f"move {moves} cost", None)
+        values.pop(f"ability {abilities} name", None)
+        values.pop(f"ability {abilities} desc", None)  
+
+    update_preview()
+
+# toggle move type function
+def toggle_button_type(nr, update=True):
+    global toggle_move_type_button
+
+    if toggle_move_type_button[nr]['text'] == 'Move':
+        toggle_move_type_button[nr].config(text='Ability')
+        move_damage_frame[nr].pack_forget()
+        move_type_frame[nr].pack_forget()
+        move_cost_frame[nr].pack_forget()
+        selected_cost_frame[nr].pack_forget()
+    else:
+        toggle_move_type_button[nr].config(text='Move')
+        move_damage_frame[nr].pack(expand=True, fill=BOTH)
+        move_type_frame[nr].pack(expand=True, fill=BOTH)
+        move_cost_frame[nr].pack(expand=True, fill=BOTH)
+        selected_cost_frame[nr].pack(expand=True, fill=BOTH)
+
+    ability_number = 0
+    move_number = 0
+    for j in range(0, limit):
+        if toggle_move_type_button[j]['text'] == 'Ability':
+            ability_number += 1
+            move_description_label[j].config(text="Ability " + str(ability_number) + " description:")
+            move_name_label[j].config(text=str(ability_number) + " name:")
+        else:
+            move_number += 1
+            move_description_label[j].config(text="Move " + str(move_number) + " description:")
+            move_damage_label[j].config(text="Move " + str(move_number) + " damage:")
+            move_name_label[j].config(text=str(move_number) + " name:")
+            move_cost_label[j].config(text="Move " + str(move_number) + " cost:")
+            move_type_label[j].config(text="Move " + str(move_number) + " type:")
+    
+    change_moves()
+    if update: update_canvas()
+
+def move_cost_update(nr, index, update=True):
+    global move_costs
+    global moods
+    global total_cost
+
+    if index != len(moods)-1 and total_cost[nr] < 8:
+        total_cost[nr] += 1
+        move_costs[nr][moods[index]] = int(move_costs[nr][moods[index]])+1
+
+        btn = ttk.Button(selected_cost_frame[nr], takefocus=False, image=types_dict[moods[index]])
+        move_cost_buttons.append(btn)
+        btn['command'] = lambda button=btn, a=nr, type=moods[index]: remove_button(button, nr, type)
+        btn.pack(side=LEFT)
+
+        if update: update_canvas()
+    
+    change_moves()
+
+def remove_button(button, nr, type, update=True):
+    global move_costs
+    global total_cost
+
+    total_cost[nr] -= 1
+    move_costs[nr][type] = int(move_costs[nr][type])-1
+    button.destroy()
+
+    if update: update_canvas()
+
+    change_moves()
+
+# move frame
 move_frame = ttk.Frame(mainframe, padding=padding*3)
 move_frame.grid(row=row, column=0, sticky=NSEW)
 mainframe.rowconfigure(row,weight=1)
-mainframe.columnconfigure(0,weight=1)
 row += 1
 
 for i in range(0, limit):
     ind_move_frame.append(ttk.Frame(move_frame, padding=padding*2))
     ind_move_frame[i].pack(expand=True, fill=BOTH)
 
+    # collapsible frames
     move_name_frame.append(ttk.Frame(ind_move_frame[i], padding=padding))
     move_name_frame[i].pack(expand=True, fill=BOTH)
     move_description_frame.append(ttk.Frame(ind_move_frame[i], padding=padding))
@@ -759,7 +779,7 @@ for i in range(0, limit):
 
     move_var.append(StringVar())
     move_name_entry.append(ttk.Entry(move_name_frame[i], textvariable=move_var[i], takefocus=False))
-    move_var[i].trace_add('write', save_file)
+    move_var[i].trace_add('write', lambda *args: change_moves())
     move_name_entry[i].grid(row=0, column=2, sticky=NSEW)
     move_name_frame[i].columnconfigure(2, weight=1)
     move_name_frame[i].rowconfigure(0, weight=1)
@@ -775,7 +795,10 @@ for i in range(0, limit):
     spin = ttk.Entry(move_damage_frame[i], textvariable=damage_var[i], width=3, takefocus=False)
     spin.grid(row=0, column=1, sticky=NSEW)
     move_damage_frame[i].columnconfigure(1, weight=1)
-    damage_var[i].trace_add('write', lambda *args, a=i: character_limit(damage_var[a], 1, 300))
+    def damage_change(a):
+        character_limit(damage_var[a], 1, 300)
+        change_moves()
+    damage_var[i].trace_add('write', lambda *args, a=i: damage_change(a))
 
     damage_entry.append(classes.Limiter(move_damage_frame[i],
                             variable=damage_var[i],
@@ -813,7 +836,7 @@ for i in range(0, limit):
         damage_type_entry[i][index].grid(row=0, column=index+1, sticky=NSEW)
         move_type_frame[i].columnconfigure(index+1, weight=1)
         move_type_frame[i].rowconfigure(1,weight=1)
-    damage_type_var[i].trace_add('write', save_file)
+    damage_type_var[i].trace_add('write', lambda *args: change_moves())
     
     # description
     move_description_label.append(ttk.Label(move_description_frame[i], text="Move " + str(i + 1) + " description:", borderwidth=borderwidth))
@@ -823,7 +846,7 @@ for i in range(0, limit):
 
     move_desc_var.append(StringVar())
     move_description_entry.append(ttk.Entry(move_description_frame[i], textvariable=move_desc_var[i], takefocus=False))
-    move_desc_var[i].trace_add('write', save_file)
+    move_desc_var[i].trace_add('write', lambda *args: change_moves())
     move_description_entry[i].grid(row=0, column=1, sticky=NSEW)
     move_description_frame[i].columnconfigure(1, weight=1)
     move_description_frame[i].rowconfigure(0, weight=1)
@@ -848,25 +871,29 @@ for i in range(0, limit):
     if i != 0:
         ind_move_frame[i].pack_forget()
 
-# retreat cost
+########## End of moves ##########
+        
+
+########## Retreat frame ##########
 retreat_frame = ttk.Frame(mainframe, padding=padding)
 retreat_frame.grid(row=row, column=0, sticky=NSEW)
 mainframe.rowconfigure(row,weight=1)
-mainframe.columnconfigure(0,weight=1)
 row += 1        
 
-ttk.Label(retreat_frame, text="Retreat cost:", borderwidth=borderwidth).grid(row=0, column=0, sticky=NSEW)
-retreat_frame.columnconfigure(0,weight=1)
-retreat_frame.rowconfigure(0,weight=1)
+# retreat label
+ttk.Label(retreat_frame, text="Retreat cost:", borderwidth=borderwidth).pack(expand=True, fill=BOTH, side='left')
 
+# retreat change function
+def change_retreat():
+    values["retreat"] = retreat_var.get()
+    if values["retreat"] == '': values["retreat"] = '0'
+    update_preview()
+
+# retreat entry and limiter
 retreat_var = StringVar()
 spin = ttk.Entry(retreat_frame, textvariable=retreat_var, width=1, takefocus=False)
-spin.grid(row=0, column=1, sticky=NSEW)
-retreat_frame.columnconfigure(1, weight=1)
+spin.pack(expand=True, fill=BOTH, side='left')
 retreat_var.trace_add('write', lambda *args: character_limit(retreat_var, 0, 7))
-
-hp_entry.grid(row=0, column=4, sticky=NSEW)
-retreat_frame.columnconfigure(4,weight=2)
 
 retreat_entry = classes.Limiter(retreat_frame,
                           variable=retreat_var,
@@ -875,80 +902,84 @@ retreat_entry = classes.Limiter(retreat_frame,
                           to=7,
                           precision=0,
                           takefocus=False)
-retreat_entry.grid(row=0, column=2, sticky=NSEW)
-retreat_frame.columnconfigure(2,weight=1)
-retreat_frame.rowconfigure(0,weight=1)
-retreat_var.trace_add('write', lambda *args: save_file(False, False, *args))
+retreat_entry.pack(expand=True, fill=BOTH, side='left')
+retreat_var.trace_add('write', lambda *args: change_retreat())
 
-
-# description
+########## Description frame ##########
 description_frame = ttk.Frame(mainframe, padding=padding)
 description_frame.grid(row=row, column=0, sticky=NSEW)
 mainframe.rowconfigure(row,weight=1)
-mainframe.columnconfigure(0,weight=1)
 row += 1
 
-ttk.Label(description_frame, text="Card description:", borderwidth=borderwidth).grid(row=0, column=0, sticky=NSEW)
-description_frame.columnconfigure(0,weight=1)
-description_frame.rowconfigure(0,weight=1)
+# description label
+ttk.Label(description_frame, text="Card description:", borderwidth=borderwidth).pack(expand=True, fill=BOTH, side='left')
+
+# description change function
+def change_desc():
+    values["description"] = desc_var.get()
+    if values["description"] == '': values["description"] = 'bitch lasagna'
+    update_preview()
 
 desc_var = StringVar()
 description_entry = ttk.Entry(description_frame, textvariable=desc_var)
-description_entry.grid(row=0, column=1, sticky=NSEW)
-description_frame.columnconfigure(1,weight=1)
-description_frame.rowconfigure(0,weight=1)
-desc_var.trace_add('write', lambda *args: save_file(False, False, *args))
+description_entry.pack(expand=True, fill=BOTH, side='left')
+desc_var.trace_add('write', lambda *args: change_desc())
 
-# Illustration
+########## Illustrator frame ##########
 illustrator_frame = ttk.Frame(mainframe, padding=padding)
 illustrator_frame.grid(row=row, column=0, sticky=NSEW)
 mainframe.rowconfigure(row,weight=1)
-mainframe.columnconfigure(0,weight=1)
 row += 1
 
-ttk.Label(illustrator_frame, text="Card illustrator:", borderwidth=borderwidth).grid(row=0, column=0, sticky=NSEW)
-illustrator_frame.columnconfigure(0,weight=1)
-illustrator_frame.rowconfigure(0,weight=1)
+# illustrator label
+ttk.Label(illustrator_frame, text="Card illustrator:", borderwidth=borderwidth).pack(expand=True, fill=BOTH, side='left')
 
+# illustrator change function
+def change_illustrator():
+    values["illustrator"] = illustrator_var.get()
+    if values["illustrator"] == '': values["illustrator"] = 'no illustrator'
+    update_preview()
+
+# illustrator entry
 illustrator_var = StringVar()
-illustrator_entry = ttk.Entry(illustrator_frame, textvariable=illustrator_var)
-illustrator_entry.grid(row=0, column=1, sticky=NSEW)
-illustrator_frame.columnconfigure(1,weight=1)
-illustrator_frame.rowconfigure(0,weight=1)
-illustrator_var.trace_add('write', lambda *args: save_file(False, False, *args))
+illustrator_entry = ttk.Entry(illustrator_frame, textvariable=illustrator_var).pack(expand=True, fill=BOTH, side='left')
+illustrator_var.trace_add('write', lambda *args: change_illustrator())
 
+
+########## Card index frame ##########
 index_frame = ttk.Frame(mainframe, padding=padding)
 index_frame.grid(row=row, column=0, sticky=NSEW)
 mainframe.rowconfigure(row,weight=1)
-mainframe.columnconfigure(0,weight=1)
 row += 1
 
-# Index
-ttk.Label(index_frame, text="Card index:", borderwidth=borderwidth).grid(row=0, column=0, sticky=NSEW)
-index_frame.columnconfigure(0,weight=1)
-index_frame.rowconfigure(0,weight=1)
+ttk.Label(index_frame, text="Card index:", borderwidth=borderwidth).pack(expand=True, fill=BOTH, side='left')
 
 index_var = StringVar()
 index_entry = ttk.Entry(index_frame, textvariable=index_var)
-index_entry.grid(row=0, column=1, sticky=NSEW)
-index_frame.columnconfigure(1,weight=1)
-index_frame.rowconfigure(0,weight=1)
-index_var.trace_add('write', lambda *args: character_limit(index_var, 0))
+index_entry.pack(expand=True, fill=BOTH, side='left')
+def change_index():
+    character_limit(index_var, 0)
+    values["entry"] = index_var.get()
+    if values["entry"] == '': values["entry"] = '0'
+    update_preview()
+index_var.trace_add('write', lambda *args: change_index())
 
-# crop image
+########## Crop image ##########
 crop_frame = ttk.Frame(mainframe, padding=padding)
 crop_frame.grid(row=row, column=0, sticky=NSEW)
 mainframe.rowconfigure(row,weight=1)
-mainframe.columnconfigure(0,weight=1)
 row += 1
 
-def import_image():   
+def import_image(file_path=''):   
     global values
     global image
     global rect
     global card_image
-
-    use_this_path = filedialog.askopenfilename(initialdir=f"{os.getcwd()}\\{file_path}", title="Select file", filetypes=(("png files", "*.png"), ("all files", "*.*")))
+    
+    if file_path == '':
+        use_this_path = filedialog.askopenfilename(initialdir=f"{os.getcwd()}\\{file_path}", title="Select file", filetypes=(("png files", "*.png"), ("all files", "*.*")))
+    else:
+        use_this_path = file_path
     if use_this_path == '': return
 
     card_image = Image.open(use_this_path)
@@ -974,26 +1005,23 @@ def import_image():
     canvas.coords(rect, 0, 0, 100, 100*aspect_ratio)
     canvas.bind("<B1-Motion>", on_drag)
     canvas.bind("<B3-Motion>", on_move_drag)
-    canvas.bind("<ButtonRelease-1>", lambda event: save_file(False, False, event))
-    canvas.bind("<ButtonRelease-3>", lambda event: save_file(False, False, event))
+    canvas.bind("<ButtonRelease-1>", lambda event: update_preview())
+    canvas.bind("<ButtonRelease-3>", lambda event: update_preview())
 
     values['image'] = card_image
 
-    save_file()
+    update_canvas()
+    update_preview()
 
 
 
-# import image
+##### import image button #####
 import_button = ttk.Button(crop_frame, text="Import image", command=import_image, takefocus=False)
-import_button.grid(row=0, column=0, sticky=NSEW)
-crop_frame.columnconfigure(0,weight=1)
-crop_frame.rowconfigure(0,weight=1)
+import_button.pack(expand=True, fill=BOTH)
 
-# image canvas
+##### Image canvas #####
 canvas = Canvas(crop_frame, width=100, height=400, background=background_color)
-canvas.grid(row=1, column=0, sticky=NSEW)
-crop_frame.columnconfigure(0,weight=1)
-crop_frame.rowconfigure(1,weight=1)
+canvas.pack(expand=True, fill=BOTH)
 
 card_image = Image.open(assets_path + "nameless.jpg")
 image = canvas.create_image(0, 0, anchor=NW, tag='photo')
@@ -1004,8 +1032,6 @@ rect = canvas.create_rectangle(0, 0, 0, 0, outline='black', width=2)
 def on_move_drag(event):
     global values
     global rect
-    global image
-    global card_image
 
     x, y = event.x, event.y
 
@@ -1017,20 +1043,20 @@ def on_move_drag(event):
     rectwidth = rectx2-rectx
     rectheight = recty2-recty
 
-    x = max(1, min(x, canvas.winfo_width()-rectwidth-1))
-    y = max(1, min(y, canvas.winfo_height()-rectheight-1))
+    x = int(max(1, min(x, canvas.winfo_width()-rectwidth-1)))
+    y = int(max(1, min(y, canvas.winfo_height()-rectheight-1)))
+
 
     canvas.coords(rect, x, y, x+rectwidth, y+rectheight)
 
     # crop image
-    cropped_image = card_image.crop((int(x), int(y), int(x+rectwidth), int(y+rectheight)))
+    values['crop'] = (x, y, int(x+rectwidth), int(y+rectheight))
 
-    values['image'] = cropped_image
+    update_preview()
 
 def on_drag(event):
     global values
     global rect
-    global image
     
     x, y = event.x, event.y
     rectx = canvas.coords(rect)[0]
@@ -1049,32 +1075,41 @@ def on_drag(event):
     rectx2 = min(x, canvas.winfo_width())
 
     width = max(rectx2-rectx, 50)
-    height = width*aspect_ratio
+    height = int(width*aspect_ratio)
 
     rectx2 = rectx+width
     recty2 = recty+height
 
     if recty2 > canvas.winfo_height():
-        recty2 = canvas.winfo_height()
+        recty2 = int(canvas.winfo_height())
         height = recty2-recty
-        rectx2 = rectx+height/aspect_ratio
+        rectx2 = int(rectx+height/aspect_ratio)
 
     canvas.coords(rect, rectx, recty, rectx2, recty2)
 
-    cropped_image = card_image.crop((int(rectx), int(recty), int(rectx2), int(recty2)))
+    values['crop'] = (int(rectx), int(recty), int(rectx2), int(recty2))
 
-    values['image'] = cropped_image
+    update_preview()
 
-
+def on_closing():
+    global running
+    try: save_file(True)
+    except: "error saving file"
+    sleep_event.set()
+    running = False
+    auto_save_thread.join()
+    window.destroy()
 window.protocol("WM_DELETE_WINDOW", on_closing)
 
 window.update()
+
+########## End of GUI ##########
 
 # start the canvas at the top
 scroll_canvas.yview_moveto(0)
 scroll_canvas.xview_moveto(0)
 
-# initialise width of window to be the same as the frame
+####### Initialise width of window to be the same as the frame #######
 width = mainframe.winfo_width()+scrollbar.winfo_width()+picture_frame.winfo_width()
 height = min(mainframe.winfo_height(), 600)
 scroll_canvas.configure(width=mainframe.winfo_width(), height=height)
@@ -1082,5 +1117,7 @@ scroll_canvas.configure(scrollregion=(0, 0, mainframe.winfo_width(), height))
 window.geometry(f"{width}x{height}")
 
 window.bind("<Configure>", update_size())
+
+allow_save = True
 
 window.mainloop()
