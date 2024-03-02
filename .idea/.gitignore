@@ -4,4 +4,4 @@
 
 # files only used for development
 test.py
-templates/
+/templates/

@@ -71,12 +71,17 @@ def resize_font(incr):
         size = font.cget("size")
         font.configure(size=size-incr)
 
+
+update_prev = True
 def update_preview():
     global values
     global picture_frame
     global photo
     global preview_label
+    global update_prev
     
+    if not update_prev: return
+
     height = window.winfo_height()
 
     image = main.generate_card_from_values(values, editor_mode=True)
@@ -199,8 +204,11 @@ ttk.Label(existing_frame, text="Open existing file:", borderwidth=borderwidth).p
 def open_file():
     global allow_save
     global move_count
+    global values
+    global update_prev
 
     toggle_auto_save(False)
+    update_prev = False
 
     use_this_path = filedialog.askopenfilename(initialdir=f"{os.getcwd()}\\{file_path}", title="Select file", filetypes=(("text files", "*.txt"), ("all files", "*.*")))
     if use_this_path == '': return
@@ -210,16 +218,15 @@ def open_file():
 
     if 'name' in old_values and old_values['name'] != '':
         name_var.set(old_values['name'])
-        if f'file_path + {name_var.get()}.png' in os.listdir(file_path):
-            import_image(f'file_path + {name_var.get()}.png')
-        elif f'file_path + {name_var.get()}.jpg' in os.listdir(file_path):
-            import_image(f'file_path + {name_var.get()}.jpg')
+        if f'{name_var.get()}.png' in os.listdir(file_path):
+            import_image(f'{file_path}{name_var.get()}.png')
+        elif f'{name_var.get()}.jpg' in os.listdir(file_path):
+            import_image(f'{file_path}{name_var.get()}.jpg')
         else:
             import_image(f'{assets_path}nameless.jpg')
 
         if 'crop' in old_values and old_values['crop'] != '':
-            values['crop'] = old_values['crop']
-            canvas.coords(rect, values['crop'][0], values['crop'][1], values['crop'][2], values['crop'][3])
+            canvas.coords(rect, old_values['crop'][0], old_values['crop'][1], old_values['crop'][2], old_values['crop'][3])
 
     if 'prev stage' in old_values and old_values['prev stage'] != '':
         evo_var.set(old_values['prev stage'])
@@ -300,7 +307,9 @@ def open_file():
         for nr in range(old_move_count, move_count):
             subtract_move(False)
 
+    update_prev = True
     update_canvas()
+    update_preview()
 
 
 open_file_button = ttk.Button(existing_frame, text="Open", command=open_file, takefocus=False)
@@ -343,6 +352,7 @@ def save_file(from_close=False):
 
     window.update()
     if values['name'] not in ('', ' '):
+        card_image.save(f'{file_path}{values["name"]}.png')
         path = ''
         if from_close: path = file_path + 'recovered.txt'
         else: path = file_path + values['name'] + '.txt'
@@ -364,7 +374,9 @@ def save_file(from_close=False):
         f.close()
 
     # remove previous file if name changed
-    if previous_name != '' and previous_name != values['name']: os.remove(file_path + previous_name + '.txt')
+    if previous_name != '' and previous_name != values['name']:
+        os.remove(file_path + previous_name + '.txt')
+        os.remove(file_path + previous_name + '.png')
     previous_name = values["name"]
 
 force_save = ttk.Button(existing_frame, text="Save", command=lambda: save_file(), takefocus=False)
@@ -400,6 +412,7 @@ hp_label.pack(expand=True, fill=BOTH, side='left')
 
 # hp change function
 def change_hp():
+    character_limit(hp_var, 1, 500)
     values['hp'] = hp_var.get()
     if values['hp'] == '': values['hp'] = '0'
     update_preview()
@@ -408,7 +421,6 @@ def change_hp():
 hp_var = StringVar()
 spin = ttk.Entry(name_frame, textvariable=hp_var, width=3, takefocus=False)
 spin.pack(expand=True, fill=BOTH, side='left')
-hp_var.trace_add('write', lambda *args: character_limit(hp_var, 1, 500))
 
 hp_entry = classes.Limiter(name_frame,
                           variable=hp_var,
@@ -417,6 +429,7 @@ hp_entry = classes.Limiter(name_frame,
                           from_=0,
                           to=500,
                           precision=1)
+hp_var.trace_add('write', lambda *args: change_hp())
 
 hp_entry.pack(expand=True, fill=BOTH, side='left')
 
@@ -798,7 +811,6 @@ for i in range(0, limit):
     def damage_change(a):
         character_limit(damage_var[a], 1, 300)
         change_moves()
-    damage_var[i].trace_add('write', lambda *args, a=i: damage_change(a))
 
     damage_entry.append(classes.Limiter(move_damage_frame[i],
                             variable=damage_var[i],
@@ -807,6 +819,7 @@ for i in range(0, limit):
                             from_=0,
                             to=300,
                             precision=1))
+    damage_var[i].trace_add('write', lambda *args, a=i: damage_change(a))
 
     damage_entry[i].grid(row=0, column=2, sticky=NSEW)
     move_damage_frame[i].columnconfigure(2, weight=1)
@@ -885,6 +898,7 @@ ttk.Label(retreat_frame, text="Retreat cost:", borderwidth=borderwidth).pack(exp
 
 # retreat change function
 def change_retreat():
+    character_limit(retreat_var, 0, 7)
     values["retreat"] = retreat_var.get()
     if values["retreat"] == '': values["retreat"] = '0'
     update_preview()
@@ -893,7 +907,6 @@ def change_retreat():
 retreat_var = StringVar()
 spin = ttk.Entry(retreat_frame, textvariable=retreat_var, width=1, takefocus=False)
 spin.pack(expand=True, fill=BOTH, side='left')
-retreat_var.trace_add('write', lambda *args: character_limit(retreat_var, 0, 7))
 
 retreat_entry = classes.Limiter(retreat_frame,
                           variable=retreat_var,
@@ -970,19 +983,24 @@ crop_frame.grid(row=row, column=0, sticky=NSEW)
 mainframe.rowconfigure(row,weight=1)
 row += 1
 
-def import_image(file_path=''):   
+scoped_image = None
+
+def import_image(path=''):   
     global values
     global image
     global rect
     global card_image
+    global scoped_image
     
-    if file_path == '':
+    if path == '':
         use_this_path = filedialog.askopenfilename(initialdir=f"{os.getcwd()}\\{file_path}", title="Select file", filetypes=(("png files", "*.png"), ("all files", "*.*")))
     else:
-        use_this_path = file_path
+        use_this_path = path
     if use_this_path == '': return
 
     card_image = Image.open(use_this_path)
+    if card_image.mode != 'RGBA':
+        card_image = card_image.convert('RGBA')
     
     # add to canvas
     scale = card_image.width/mainframe.winfo_width()
@@ -990,7 +1008,7 @@ def import_image(file_path=''):
     canvas.config(width=card_image.width, height=card_image.height)
     localphoto = ImageTk.PhotoImage(card_image)
     canvas.itemconfig(image, image=localphoto)
-    canvas.image = localphoto
+    scoped_image = localphoto
 
 
     # add rectangle to canvas to show where the image will be cropped
@@ -1116,8 +1134,10 @@ scroll_canvas.configure(width=mainframe.winfo_width(), height=height)
 scroll_canvas.configure(scrollregion=(0, 0, mainframe.winfo_width(), height))
 window.geometry(f"{width}x{height}")
 
-window.bind("<Configure>", update_size())
-
 allow_save = True
+
+update_prev = True
+window.update()
+update_preview()
 
 window.mainloop()
