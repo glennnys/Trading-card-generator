@@ -1,0 +1,97 @@
+##########################################
+## Add/update move
+INSERT INTO Moves (moveName, damage, description, isAbility, typeID) 
+SELECT ?, ?, ?, 0, t.typeID
+FROM Types t
+WHERE t.type = ?
+ON CONFLICT (name) DO UPDATE SET
+moveName = excluded.moveName,
+damage = excluded.damage,
+description = excluded.description,
+isAbility = excluded.isAbility,
+typeID = excluded.typeID;
+
+## link move/ability (to card)
+INSERT INTO cardsXMoves (cardID, moveID)
+SELECT c.cardID, m.moveID,
+FROM Moves m
+JOIN Cards c ON c.name = ?
+WHERE m.moveName = ?;
+
+## Add ability
+INSERT INTO Moves (moveName, description, isAbility) 
+VALUES (?, ?, 1)
+ON CONFLICT (name) DO UPDATE SET
+moveName = excluded.moveName,
+description = excluded.description;
+
+## Add card
+INSERT INTO Cards (name, description, prevolve, evolve, hp, retreat, rarity, entry, illustrator, image, crop)
+SELECT ?, ?, ?,  ?, ?, ?, r.rarityID, ?, ?, ?, ?
+FROM Rarities r WHERE r.rarity = ?
+ON CONFLICT (name) DO UPDATE SET
+description = excluded.description,
+hp = excluded.hp,
+prevolve = excluded.prevolve,
+evolve = excluded.evolve,
+retreat = excluded.retreat,
+rarity = excluded.rarity,
+entry = excluded.entry,
+illustrator = excluded.illustrator,
+image = excluded.image,
+crop = excluded.crop;
+
+## Add types to a card
+INSERT INTO CardTypes (cardID, typeID, isPrimary)
+SELECT c.cardID, t.typeID, ?
+FROM Types t
+JOIN Cards c ON c.name = ?
+WHERE t.type = ?;
+
+## Insert move cost
+INSERT INTO MoveCosts (moveID, typeID, amount, isVolatile)
+SELECT m.moveID, t.typeID, ?, ?
+FROM Types t
+JOIN Moves m ON m.moveName = ?
+WHERE t.type = ?
+
+##########################
+
+## get card
+SELECT name, description, hp, prevolve, evolve, retreat, r.rarity, crop, illustrator, entry, image FROM cards
+INNER JOIN rarities r ON cards.rarity = r.rarityID
+WHERE name = ?
+
+## get all moves from card
+select m.moveName, t.type, m.damage, m.description, m.isAbility from cardsXMoves cm
+INNER JOIN Cards c ON c.cardID = cm.cardID
+INNER JOIN Moves m ON m.moveID = cm.moveID
+LEFT JOIN types t ON t.typeID = m.typeID
+where c.name = ?
+
+## get cost of a move
+select t.type, mc.amount from moveCosts mc
+INNER JOIN moves m ON m.moveID = mc.moveID
+INNER JOIN types t ON t.typeID = mc.typeID
+WHERE m.moveName = ?
+
+## Add cost to move
+INSERT INTO moveCosts (moveID, typeID, amount)
+SELECT (SELECT moveID from Moves WHERE moveName = ?),
+(SELECT typeID from Types WHERE type = ?), ?
+
+## get types of card
+SELECT t.type, t.passive, ct.isPrimary FROM cardsXtypes ct
+INNER JOIN cards c ON c.cardID = ct.cardID
+INNER JOIN types t ON t.typeID = ct.typeID
+WHERE c.name = ?
+
+#############################
+
+## remove moves from card
+DELETE FROM cardsXmoves
+WHERE cardID = (SELECT cardID FROM Cards WHERE name = ?)
+
+## remove types from card
+DELETE FROM cardsXtypes
+WHERE cardID = (SELECT cardID FROM Cards WHERE name = ?)
