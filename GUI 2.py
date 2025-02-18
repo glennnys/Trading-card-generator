@@ -137,7 +137,7 @@ def match_vars_to_values():
 
 update_prev = False
 update_value = True
-def update_preview(c):
+def update_preview(conn):
     global values
     global picture_frame
     global photo
@@ -152,10 +152,9 @@ def update_preview(c):
     print("Updating preview " + str(preview_count))
     
     width = window.winfo_width() - scrollbar.winfo_width() - scroll_canvas.winfo_width()
-    print(window.winfo_width(), scrollbar.winfo_width(), scroll_canvas.winfo_width())
     height = preview_label.winfo_height()
     
-    image = main.preview_card(values, c, editor_mode=True)
+    image = main.preview_card(values, conn, editor_mode=True)
     heightScale = height/image.height
     widthScale = width/image.width
     scale = min(heightScale, widthScale)
@@ -182,11 +181,10 @@ def set_update_canv():
 closing = False
 def update_prevncanv():
     conn2 = sqlite3.connect('cards.db')
-    c2 = conn2.cursor()
 
     while not closing:
         time.sleep(0.1)
-        update_preview(c2)
+        update_preview(conn2)
 
         update_canvas()
 
@@ -201,12 +199,12 @@ def on_closing():
     global update_thread
 
 
-    if messagebox.askokcancel("Quit", "Do you want to quit? Progress will be saved"):
+    if messagebox.askokcancel("Quit", "Are you sure you want to quit? Unsaved progress will be lost."):
         closing = True
 
         if update_thread is not None and update_thread.is_alive():
             update_thread.join(timeout=0.3)
-            
+
         window.destroy()
         conn.close()
         print("Connection closed succesfully")
@@ -256,8 +254,10 @@ def go_forward(event):
     global enable_back
 
     if active_page == 2:
+        enable_back = True
         page2.lift()
     elif active_page == 3:
+        enable_back = True
         pass #TODO: add pages
     else:
         pass
@@ -288,9 +288,17 @@ def ctrly(event):
         match_vars_to_values()
         set_update_prev(False)
 
+def ctrls(event):
+    main.store_card(c, conn)
+
 def search_cards(search):
     global existing_cards
     options = [x for x in existing_cards if search.lower() in x.lower()]
+    return options
+
+def search_moves(search):
+    global existing_moves
+    options = [x for x in existing_moves if search.lower() in x.lower()]
     return options
 
 def get_card():
@@ -309,6 +317,7 @@ def update_value_index(values):
     values_memory = values_memory[:values_index + 1] # remove all values after current index
     values_memory.append(values.copy()) # add new values
     values_index = values_index + 1 # update index
+    
 
 
 ## INITIALISATION ##
@@ -321,12 +330,13 @@ window.bind("<Button-4>", go_back)
 window.bind("<Button-5>", go_forward)
 window.bind("<Control-z>", ctrlz)
 window.bind("<Control-y>", ctrly)
+window.bind("<Control-s>", ctrls)
 window.bind('<Configure>', lambda event: set_update_canv())
 
 c.execute("SELECT name FROM get_cards")
 existing_cards = c.fetchall()
 existing_cards = [x[0] for x in existing_cards]
-c.execute("SELECT name FROM get_moves")
+c.execute("SELECT moveName FROM get_moves")
 existing_moves = c.fetchall()
 existing_moves = [x[0] for x in existing_moves]
 
@@ -436,7 +446,7 @@ navigation_frame.pack(expand=True, fill=BOTH, side='top')
 back_button = ttk.Button(navigation_frame, text="Back", command=lambda: go_back(None), style="TButton", takefocus=False)
 back_button.pack(side=LEFT, padx=10)
 
-save_button = ttk.Button(navigation_frame, text="Save", command=lambda: main.generate_card_from_db(values['name'], c), takefocus=False)
+save_button = ttk.Button(navigation_frame, text="Save", command=lambda: main.store_card(c, conn), takefocus=False)
 save_button.pack(side=RIGHT)
 
 refresh_preview_button = ttk.Button(navigation_frame, text="Refresh preview", command=lambda: (set_update_prev(), match_vars_to_values()), takefocus=False)
@@ -515,6 +525,7 @@ evo_name.pack(expand=True, fill=BOTH, side='left')
 # evo change function
 def reset_evo():
     if 'prevolve'in values: evo_var.set(values['prevolve'])
+    else: evo_var.set('')
     set_update_prev(False)
 
 def change_evo():
@@ -584,9 +595,12 @@ volatile_type_images = []
 resized_images = []
 
 def reset_type():
-    type_var.set(values['type'][0])
-    if len(values['type']) == 2 and values['type'][1] != 'none' and values['type'][0] != values['type'][1]:
-        type_var2.set(values['type'][1])
+    global values
+    types = values['type']
+
+    type_var.set(types[0])
+    if len(types) == 2 and types[1] != 'none' and types[0] != types[1]:
+        type_var2.set(types[1])
     else:
         type_var2.set('none')
     set_update_prev(False)
@@ -753,7 +767,6 @@ def reset_moves():
             if nr+1 > move_count:
                 add_move(False)
             if toggle_move_type_button[nr]['text'] == 'Move':
-                print('toggle')
                 toggle_button_type(nr, False)
             move_var[nr].set(init_values[f"ability {nr+1} name"])
             ability_count = nr+1
@@ -775,7 +788,11 @@ def reset_moves():
             move_var[nr+ability_count].set(init_values[f"move {nr+1} name"])
             new_move_count = ability_count + nr + 1
 
-        if f"move{nr+1} damage" in init_values and init_values[f"move {nr+1} damage"] != '':
+            if f"move {nr+1} damage" not in init_values:
+                damage_var[nr+ability_count].set('')
+                damage_type_var[nr+ability_count].set('neutral')
+
+        if f"move {nr+1} damage" in init_values and init_values[f"move {nr+1} damage"] != '':
             if ability_count + nr + 1 > move_count:
                 add_move(False)
             if toggle_move_type_button[nr+ability_count]['text'] == 'Ability':
@@ -800,7 +817,6 @@ def reset_moves():
             new_move_count = ability_count + nr + 1
 
             costs = init_values[f"move {nr+1} cost"]
-
             move_cost_reset(nr+ability_count)  
             for cost in costs:
                 count = int(cost.split()[0])
@@ -825,7 +841,14 @@ def change_moves(update=True): # save moves and abilities to values
     
     abilities = 0
     moves = 0
-    for nr in range(0, limit):  
+    for nr in range(0, limit): 
+        # see if the move belongs to any other card as well, then ask to overwrite or use existing
+        c.execute("""SELECT moveName FROM get_moves WHERE name != ? AND moveName = ?""", (values['name'], move_var[nr].get()) )
+        results = c.fetchall()
+        pre_existing_move = len(results) > 0
+        #TODO: add move regeneration
+
+
         if toggle_move_type_button[nr]['text'] == 'Move':
             moves += 1
             if nr>=move_count:
@@ -919,10 +942,11 @@ def move_cost_reset(nr):
         move_costs[nr][key] = 0
     total_cost[nr] = 0
 
-    for button in buttons:
+    for i in range(len(buttons)-1, -1, -1):
+        button = buttons[i]
         if button[1] == nr:
             button[0].destroy()
-    buttons.clear()
+            buttons.pop(i)
 
 def move_cost_update(nr, index, update=True):
     global move_costs
@@ -974,6 +998,8 @@ def remove_button(button, nr, type, update=True):
 move_frame = ttk.Frame(mainframe, padding=padding*3)
 move_frame.pack(expand=True, fill=BOTH, side='top')
 
+move_options = search_moves('')
+
 for i in range(0, limit):
     ind_move_frame.append(ttk.Frame(move_frame, padding=padding*2))
     ind_move_frame[i].pack(expand=True, fill=BOTH)
@@ -1001,13 +1027,16 @@ for i in range(0, limit):
     move_name_frame[i].columnconfigure(0, weight=1)
     move_name_frame[i].rowconfigure(0, weight=1)
 
+
     move_name_label.append(ttk.Label(move_name_frame[i], text=str(i + 1) + " name:", borderwidth=borderwidth))
     move_name_label[i].grid(row=0, column=1, sticky=NSEW)
     move_name_frame[i].columnconfigure(1, weight=1)
     move_name_frame[i].rowconfigure(0, weight=1)
 
+
     move_var.append(StringVar())
-    move_name_entry.append(ttk.Entry(move_name_frame[i], textvariable=move_var[i], takefocus=False))
+    move_name_entry.append(ttk.Combobox(move_name_frame[i], textvariable=move_var[i], values=move_options, takefocus=False))
+    move_name_entry[i].bind("<KeyRelease>", lambda event: evo_entry.configure(values=search_moves(move_var[i].get())))
     move_var[i].trace_add('write', lambda *args: change_moves())
     move_name_entry[i].grid(row=0, column=2, sticky=NSEW)
     move_name_frame[i].columnconfigure(2, weight=1)

@@ -12,6 +12,7 @@ import sqlite3
 import threading
 
 import matplotlib.pyplot as plt
+from numpy import save
 
 # set to change card shape and size, most things move with it. sort of
 card_shape = (747, 1038)
@@ -117,17 +118,18 @@ def set_text(text, font, color, corner, width, stroke=2, c=c):
     height = font.size #the total height of the font from lower letters like p q and y to highest letters like t l and d
     offset = font.font.height #supposedly the actual height including the distance between two lines
     ascent, descent = font.getmetrics() 
+    descent = descent>>2
 
     
     # Wrap text according to the available width
-    new_text, replaced_items, before_items, lines = process_string(text, '    ', math.ceil(width / pixels_per_letter))
+    new_text, replaced_items, before_items, lines = process_string(text, '     ', math.ceil(width / pixels_per_letter))
     
     positions = []  # To store the positions of the items in the text
     starting_pos = [corner[0], corner[1]]
 
     for item, before_item_text, line in zip(replaced_items, before_items, lines):
         width = int(draw.textlength(before_item_text, font=font))
-        positions.append((starting_pos[0] + width, starting_pos[1] + int(offset*line*1.1) + descent))
+        positions.append((starting_pos[0] + width, starting_pos[1] + int(offset*line) + descent))
 
 
 
@@ -141,7 +143,7 @@ def set_text(text, font, color, corner, width, stroke=2, c=c):
     for item, position in zip(replaced_items, positions):
         item = item.replace("_", " ")
         img=get_asset(item, c)
-        set_image(img, (position[0], position[1], position[0]+height, position[1]+height))
+        set_image(img, (position[0], position[1], position[0]+offset, position[1]+offset))
 
     if show_steps: image.show()
 
@@ -409,14 +411,14 @@ def set_evolution(c = c):
             draw.ellipse((0, 0) + size, fill=255)
 
             if data[2] is not None:
-                prevolve_image = Image.open(io.BytesIO(data[2]))
+                prevolve_image = data[2]
+
             else:
                 prevolve_image = get_asset('nameless', c)
             
-
             if data[3] is not None:
                 corners = (data[3], data[4], data[5], data[6])
-                cropped_image = Image.open(io.BytesIO(values['image'])).crop(corners)
+                cropped_image = Image.open(io.BytesIO(prevolve_image)).crop(corners)
                 prevolve_image = io.BytesIO()
                 cropped_image.save(prevolve_image, format='PNG')
                 prevolve_image = prevolve_image.getvalue()
@@ -579,7 +581,7 @@ def set_default(c = c):
     values['passive'] = "None"
     values['move 1 name'] = 'moveless'
     values['move 1 desc'] = 'no description'
-    values['move 1 damage'] = '0 neutral'
+    values['move 1 damage'] = '20 neutral'
     values['move 1 cost'] = ['0 neutral']
     values['retreat'] = '0'
     values['entry'] = '0'
@@ -590,7 +592,7 @@ def set_default(c = c):
     return values
 
 
-def store_card(c = c):
+def store_card(c = c, conn = conn):
 
     crop = values['crop'] if 'crop' in values else [None, None, None, None]
     prevolve = values['prevolve'] if 'prevolve' in values else None
@@ -634,9 +636,15 @@ def store_card(c = c):
                     WHERE t.type = ?;""", (isPrimary ,values['name'], value))
         
     ## store card moves
-    print({k:v for k,v in values.items() if k not in ["image"]})
     num_moves = max([int(''.join(filter(str.isdigit, key))) for key in values.keys() if key.startswith('move')])
     for i in range(1, num_moves+1):
+        if f'move {i} damage' not in values: 
+            damage = None
+            damageType = 'neutral'
+        else:
+            damage = values[f'move {i} damage'].split(' ')[0]
+            damageType = values[f'move {i} damage'].split(' ')[1]
+
         c.execute("""INSERT INTO Moves (moveName, damage, description, isAbility, typeID) 
                     SELECT ?, ?, ?, 0, t.typeID
                     FROM Types t
@@ -646,7 +654,7 @@ def store_card(c = c):
                     damage = excluded.damage,
                     description = excluded.description,
                     isAbility = excluded.isAbility,
-                    typeID = excluded.typeID;""", (values[f'move {i} name'], values[f'move {i} damage'].split(' ')[0], values[f'move {i} desc'], values[f'move {i} damage'].split(' ')[1]))
+                    typeID = excluded.typeID;""", (values[f'move {i} name'], damage, values[f'move {i} desc'], damageType))
         
         for cost in values[f'move {i} cost']:
             c.execute("""INSERT INTO MoveCosts (moveID, typeID, amount, volatile)
@@ -674,16 +682,30 @@ def store_card(c = c):
         
         ## link card to ability
         c.execute("""INSERT INTO cardsXMoves (cardID, moveID)
-                    SELECT c.cardID, m.moveID, ?
+                    SELECT c.cardID, m.moveID
                     FROM Moves m
                     JOIN Cards c ON c.name = ?
                     WHERE m.moveName = ?;""", (values['name'], values[f'ability {i} name']))
+        
+    # put the finished card in the database
+    c.execute("SELECT * FROM get_cards WHERE name = ?", (values['name'],))
+    data = c.fetchone()
+    if data[1] == 'Regular':    
+        image_blob = io.BytesIO()
+        image.save(image_blob, format='PNG')
+        image_blob = image_blob.getvalue()
+        c.execute('''
+            INSERT INTO finishedCards (cardID, card)
+            VALUES(?, ?)
+            ON CONFLICT(cardID) 
+            DO UPDATE SET card = excluded.card
+        ''', (data[2], image_blob))
 
     conn.commit()
 
 
 # stores all data from text file in a dictionary for look up
-def generate_dict(name, c):
+def generate_dict(name, c=c):
     values = {}
 
     # get all types
@@ -750,7 +772,8 @@ def generate_dict(name, c):
                 abilitynr += 1
             else:
                 values[f'move {movenr} name'] = value[0]
-                values[f'move {movenr} damage'] = f'{value[2]} {value[1]}'
+                if value[2] != None and value[2] != 0 and value[2] != '':
+                    values[f'move {movenr} damage'] = f'{value[2]} {value[1]}'
                 values[f'move {movenr} desc'] = value[3]
                 costs = c.fetchall()
 
@@ -806,7 +829,7 @@ def generate_all_cards():
     conn.close()
 
 # does the text processing and starts the different steps of generating a card
-def generate_card_from_db(name, c=c):
+def generate_card_from_db(name, c=c, conn=conn):
     global image
     global values
 
@@ -834,24 +857,26 @@ def generate_card_from_db(name, c=c):
         except sqlite3.Error as error:
             print(f"Failed to insert image into sqlite table: {error}")
 
-
-    conn.close()
-
 def swap_db_connection(new_conn):
     global c
     c = new_conn.cursor()
 
-def preview_card(card_values, c=c, editor_mode=False):
+def preview_card(card_values, conn=conn, editor_mode=False, save_to_db=False):
     global image
     global values
     global do_prints
+
+    c = conn.cursor()
 
     do_prints = not editor_mode
 
     values = card_values
 
     procedural_card(c)
-    store_card(c)
+
+    if save_to_db:
+        store_card(c, conn)
+    
 
     return image
 
