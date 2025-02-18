@@ -1,5 +1,9 @@
+v = [1, 10, 3]
 
-print("1 memer volatile".split()[1])
+entry_options = [f'{i}' for i in range(20)]
 
-print(True * 5)
-print(False * 5)
+for i in range(len(v)):
+        if v[-i-1] != 1:
+            entry_options.pop(int(v[-i-1]))
+
+print(entry_options)

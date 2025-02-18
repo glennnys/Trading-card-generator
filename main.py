@@ -21,7 +21,7 @@ do_prints = True
 conn = sqlite3.connect('cards.db')
 c = conn.cursor()
 
-# important paths
+# important paths       
 biggest_font = 'Roboto-BoldItalic'
 big_font = 'Roboto-Bold'
 normal_font = 'Roboto-Medium'
@@ -594,6 +594,9 @@ def set_default(c = c):
 
 def store_card(c = c, conn = conn):
 
+    if values['name'] == 'nameless':
+        return
+
     crop = values['crop'] if 'crop' in values else [None, None, None, None]
     prevolve = values['prevolve'] if 'prevolve' in values else None
 
@@ -638,6 +641,8 @@ def store_card(c = c, conn = conn):
     ## store card moves
     num_moves = max([int(''.join(filter(str.isdigit, key))) for key in values.keys() if key.startswith('move')])
     for i in range(1, num_moves+1):
+        if values[f'move {i} name'] == 'moveless':
+            continue
         if f'move {i} damage' not in values: 
             damage = None
             damageType = 'neutral'
@@ -656,12 +661,16 @@ def store_card(c = c, conn = conn):
                     isAbility = excluded.isAbility,
                     typeID = excluded.typeID;""", (values[f'move {i} name'], damage, values[f'move {i} desc'], damageType))
         
+        # remove old cost
+        c.execute("""DELETE FROM MoveCosts
+                WHERE moveID = (SELECT moveID FROM Moves WHERE moveName = ?);""", (values[f'move {i} name'],))
+        
         for cost in values[f'move {i} cost']:
             c.execute("""INSERT INTO MoveCosts (moveID, typeID, amount, volatile)
                         SELECT m.moveID, t.typeID, ?, ?
                         FROM Types t
                         JOIN Moves m ON m.moveName = ?
-                        WHERE t.type = ?""", (cost.split(' ')[1], 1 if 'Volatile' in cost else 0, values[f'move {i} name'], cost.split(' ')[0]))
+                        WHERE t.type = ?;""", (cost.split(' ')[0], 1 if 'volatile' in cost else 0, values[f'move {i} name'], cost.split(' ')[1]))
             
         ## link card to move
         c.execute("""INSERT INTO cardsXMoves (cardID, moveID)
@@ -674,11 +683,14 @@ def store_card(c = c, conn = conn):
     ## store card abilities
     num_abilities = max([int(''.join(filter(str.isdigit, key))) for key in values.keys() if key.startswith('ability')] + [0])
     for i in range(1, num_abilities+1):
+        if values[f'ability {i} name'] == 'moveless':
+            continue
         c.execute("""INSERT INTO Moves (moveName, description, isAbility) 
                     VALUES (?, ?, 1)
                     ON CONFLICT (moveName) DO UPDATE SET
                     moveName = excluded.moveName,
-                    description = excluded.description;""", (values[f'ability {i} name'], values[f'ability {i} desc']))
+                    description = excluded.description,
+                    isAbility = excluded.isAbility;""", (values[f'ability {i} name'], values[f'ability {i} desc']))
         
         ## link card to ability
         c.execute("""INSERT INTO cardsXMoves (cardID, moveID)
@@ -775,9 +787,14 @@ def generate_dict(name, c=c):
                 if value[2] != None and value[2] != 0 and value[2] != '':
                     values[f'move {movenr} damage'] = f'{value[2]} {value[1]}'
                 values[f'move {movenr} desc'] = value[3]
+
+                c.execute('''SELECT * FROM get_move_costs    
+                    WHERE name = ?
+                ''', (values[f'move {movenr} name'],))
                 costs = c.fetchall()
 
-                values[f'move {movenr} cost'] = [f'{value[1]} {value[0]}{"" if value[2] == 0 else " Volatile"}' for value in costs]
+                values[f'move {movenr} cost'] = [f'{value[1]} {value[0]}{"" if value[2] == 0 else " volatile"}' for value in costs]
+
                 movenr += 1  
     except Exception as e:
         print('Card not found or error in database. Using default values. ', e)

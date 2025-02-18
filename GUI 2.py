@@ -317,6 +317,9 @@ def update_value_index(values):
     values_memory = values_memory[:values_index + 1] # remove all values after current index
     values_memory.append(values.copy()) # add new values
     values_index = values_index + 1 # update index
+
+def remove_selection(event):
+    event.widget.selection_clear()  # Clears text selection
     
 
 
@@ -333,10 +336,10 @@ window.bind("<Control-y>", ctrly)
 window.bind("<Control-s>", ctrls)
 window.bind('<Configure>', lambda event: set_update_canv())
 
-c.execute("SELECT name FROM get_cards")
+c.execute("SELECT name FROM get_cards WHERE variant = 'Regular'")
 existing_cards = c.fetchall()
 existing_cards = [x[0] for x in existing_cards]
-c.execute("SELECT moveName FROM get_moves")
+c.execute("SELECT moveName FROM Moves")
 existing_moves = c.fetchall()
 existing_moves = [x[0] for x in existing_moves]
 
@@ -407,8 +410,22 @@ scrollbar.pack(side=LEFT, fill=Y)
 scroll_canvas.configure(yscrollcommand=scrollbar.set)
 scroll_canvas.bind('<Configure>', lambda e: scroll_canvas.configure(scrollregion=scroll_canvas.bbox("all")))
 
+
 def on_mousewheel(event):
-    scroll_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+    try:
+        focused_widget = window.focus_get()
+            
+        # Check if the focused widget is a Combobox and ignore scrolling in that case
+        if isinstance(focused_widget, ttk.Combobox):
+            return  # Do nothing, let the Combobox handle the scroll
+
+        # Otherwise, scroll the canvas
+        scroll_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+
+    except KeyError:  # Catch any errors related to popdown focus
+        pass  # Ignore the error and prevent crashing
+
+    
 
 
 scroll_canvas.bind_all("<MouseWheel>", on_mousewheel)
@@ -825,7 +842,8 @@ def reset_moves():
                 for index in range(len(card_types)-1):
                     if type == card_types[index]:
                         for j in range(count):
-                            move_cost_update(nr+ability_count, index + volatile * len(card_types), False)
+                            ind = index if not volatile else index + len(card_types)
+                            move_cost_update(nr+ability_count, ind, False)
 
     if move_count > new_move_count:
         for i in range(move_count - new_move_count):
@@ -836,7 +854,7 @@ def reset_moves():
     set_update_prev(False)
     set_update_canv()
 
-def change_moves(update=True): # save moves and abilities to values
+def change_moves(update=True, name_changed=False): # save moves and abilities to values
     global values
     
     abilities = 0
@@ -846,8 +864,64 @@ def change_moves(update=True): # save moves and abilities to values
         c.execute("""SELECT moveName FROM get_moves WHERE name != ? AND moveName = ?""", (values['name'], move_var[nr].get()) )
         results = c.fetchall()
         pre_existing_move = len(results) > 0
-        #TODO: add move regeneration
 
+        c.execute("""SELECT moveName FROM get_moves WHERE name == ? AND moveName = ?""", (values['name'], move_var[nr].get()) )
+        results = c.fetchall()
+        moves_of_card = []
+        for i in range(limit):
+            if f'move {i+1} name' in values:
+                moves_of_card.append(values[f'move {i+1} name'])
+            if f'ability {i+1} name' in values:
+                moves_of_card.append(values[f'ability {i+1} name'])
+
+        already_move_of_card = len(results) > 0 or move_var[nr].get() in moves_of_card
+
+        move_name_entry[nr].event_generate("<Escape>")  # Close the dropdown manually
+        window.update_idletasks()  # Ensure it visually updates before popup
+
+        if name_changed and pre_existing_move and not already_move_of_card:
+            overwrite = messagebox.askyesnocancel("Overwrite move?", "A move with this name already exists. Import this move? No will overwrite the existing move. Cancel will return to the previous value.")
+            if overwrite == True:
+                c.execute('''SELECT * FROM get_moves 
+                    WHERE moveName = ?
+                ''', (move_var[nr].get(),))         
+                value = c.fetchall()[0]
+
+                if (value[4] == 1 and toggle_move_type_button[nr]['text'] == 'Move') or (value[4] == 0 and toggle_move_type_button[nr]['text'] == 'Ability'):
+                    toggle_button_type(nr, False)
+                    
+                if value[4] == 1:
+                    move_var[nr].set(value[0])
+                    move_desc_var[nr].set(value[3])
+                else:
+                    move_var[nr].set(value[0])
+                    if value[2] != None and value[2] != 0 and value[2] != '':
+                        damage_var[nr].set(f'{value[2]} {value[1]}')
+                    move_desc_var[nr].set(value[3])
+
+                    print(value[0])
+                    c.execute('''SELECT * FROM get_move_costs    
+                                WHERE name = ?
+                                ''', (value[0],))
+                    costs = c.fetchall()
+                    
+                    move_cost_reset(nr)  
+                    for cost in costs:
+                        count = int(cost[1])
+                        type = cost[0]
+                        volatile = cost[2]
+                        for index in range(len(card_types)-1):
+                            if type == card_types[index]:
+                                for j in range(count):
+                                    move_cost_update(nr, index + volatile * len(card_types), False)
+                
+            elif overwrite == False:
+                pass
+            elif overwrite == None:
+                if toggle_move_type_button[nr]['text'] == 'Move':
+                    move_name_entry[nr].set(values[f'move {moves + 1} name'])
+                else:
+                    move_name_entry[nr].set(values[f'ability {abilities + 1} name'])
 
         if toggle_move_type_button[nr]['text'] == 'Move':
             moves += 1
@@ -1035,9 +1109,9 @@ for i in range(0, limit):
 
 
     move_var.append(StringVar())
-    move_name_entry.append(ttk.Combobox(move_name_frame[i], textvariable=move_var[i], values=move_options, takefocus=False))
-    move_name_entry[i].bind("<KeyRelease>", lambda event: evo_entry.configure(values=search_moves(move_var[i].get())))
-    move_var[i].trace_add('write', lambda *args: change_moves())
+    move_name_entry.append(ttk.Combobox(move_name_frame[i], textvariable=move_var[i], values=move_options, takefocus=True))
+    move_name_entry[i].bind("<KeyRelease>", lambda event, a=i: move_name_entry[a].configure(values=search_moves(move_name_entry[a].get())))
+    move_var[i].trace_add('write', lambda *args: change_moves(name_changed=True))
     move_name_entry[i].grid(row=0, column=2, sticky=NSEW)
     move_name_frame[i].columnconfigure(2, weight=1)
     move_name_frame[i].rowconfigure(0, weight=1)
@@ -1231,21 +1305,52 @@ index_frame.pack(expand=True, fill=BOTH, side=TOP)
 
 ttk.Label(index_frame, text="Card index:", borderwidth=borderwidth).pack(expand=True, fill=BOTH, side='left')
 
-index_var = StringVar()
-index_entry = ttk.Entry(index_frame, textvariable=index_var)
-index_entry.pack(expand=True, fill=BOTH, side='left')
-
 def reset_index():
     index_var.set(values['entry'])
+    c.execute("""SELECT entry FROM Cards""")
+    existing_entries = c.fetchall()
+
+    c.execute("""SELECT entry FROM Cards WHERE name = ?""", (values['name'],))
+    result = c.fetchall()
+    this_entry = -1
+    if len(result) > 0:
+        this_entry = c.fetchall()[0][0]
+
+    entry_options = [f'{i}' for i in range(10000)]
+
+    for i in range(len(existing_entries)):
+        entry = int(existing_entries[-i-1][0])
+        if entry != this_entry:
+            entry_options.pop(entry)
+
+    index_entry.configure(values=entry_options)
+
+    index_var.set(entry_options[0])
+    
     set_update_prev(False)
 
 def change_index():
-    character_limit(index_var, 0)
+    #character_limit(index_var, 0)
     values["entry"] = index_var.get()
     if values["entry"] == '': values["entry"] = '0'
     set_update_prev()
+
+c.execute("""SELECT entry FROM Cards""")
+existing_entries = c.fetchall()
+
+entry_options = [f'{i}' for i in range(10000)]
+
+for i in range(len(existing_entries)):
+    entry_options.pop(int(existing_entries[-i-1][0])-1)
+
+
+index_var = StringVar()
+index_entry = ttk.Combobox(index_frame, textvariable=index_var, values=entry_options, takefocus=True, state='readonly')
+index_entry.pack(expand=True, fill=BOTH, side='left')
+index_entry.bind("<<ComboboxSelected>>", remove_selection)
 index_var.trace_add('write', lambda *args: change_index())
 
+index_var.set(entry_options[0])
 
 ########## Crop image ##########
 crop_frame = ttk.Frame(mainframe, padding=padding)

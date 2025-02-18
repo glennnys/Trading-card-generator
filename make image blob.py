@@ -34,7 +34,7 @@ def insert_all_images():
     # Create a cursor object
     cursor = conn.cursor()
     # Get the path to the assets folder
-    assets_folder = 'placeholder'
+    assets_folder = 'assets'
 
     # Iterate over all files in the assets folder
     for filename in os.listdir(assets_folder):
