@@ -719,6 +719,10 @@ def subtract_move(update=True):
     if move_count > 1:
         move_count -= 1
         mainframe.rowconfigure(3,weight=move_count*3)
+        move_var[move_count].set('')
+        move_desc_var[move_count].set('')
+        damage_var[move_count].set('')
+        move_cost_reset(move_count)
         ind_move_frame[move_count].pack_forget()
 
     change_moves(update)
@@ -767,6 +771,10 @@ move_damage_frame = []
 move_type_frame = []
 move_cost_frame = []
 selected_cost_frame = []
+
+def reset_move_name(nr):
+    pass
+#TODO: split up reset and change of moves
 
 # change moves function
 def reset_moves():
@@ -1310,11 +1318,13 @@ def reset_index():
     c.execute("""SELECT entry FROM Cards""")
     existing_entries = c.fetchall()
 
+
     c.execute("""SELECT entry FROM Cards WHERE name = ?""", (values['name'],))
     result = c.fetchall()
     this_entry = -1
     if len(result) > 0:
-        this_entry = c.fetchall()[0][0]
+        this_entry = result[0][0]
+
 
     entry_options = [f'{i}' for i in range(10000)]
 
@@ -1325,7 +1335,8 @@ def reset_index():
 
     index_entry.configure(values=entry_options)
 
-    index_var.set(entry_options[0])
+    if len(result) > 0: index_var.set(str(this_entry))
+    else: index_var.set(entry_options[0])
     
     set_update_prev(False)
 
