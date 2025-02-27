@@ -113,7 +113,11 @@ def set_text(text, font, color, corner, width, stroke=2, c=c):
     
     # Calculate the size of the text
     size = draw.textlength(text, font=font)
-    pixels_per_letter =0.95 * size / len(text)
+    size_backup = draw.textlength('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ', font=font)
+    if len(text) == 0:
+        pixels_per_letter = 0.95 * size_backup / len('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
+    else:
+        pixels_per_letter = 0.95 * size / len(text)
    
     height = font.size #the total height of the font from lower letters like p q and y to highest letters like t l and d
     offset = font.font.height #supposedly the actual height including the distance between two lines
@@ -185,7 +189,7 @@ def set_picture():
         corners = (
             wall_thickness_xy[0], wall_thickness_xy[1], wall_thickness_xy[0] + width, wall_thickness_xy[1] + height)
         
-    if 'crop' in values and values['crop'] != '':
+    if values['crop'] != '':
         cropped_image = Image.open(io.BytesIO(values['image'])).crop(values['crop'])
         byte_image = io.BytesIO()
         cropped_image.save(byte_image, format='PNG')
@@ -234,8 +238,8 @@ def set_moves(c = c):
 
     # ability
     for i in range(1, 4):
-        if f'ability {i} name' not in values:
-            break
+        if values[f'move {i} type'] != 'ability':
+            continue
         ability_shape = (340, 90)
         icon_height = 40
         width = int(ability_shape[0]*(icon_height/ability_shape[1]))
@@ -244,12 +248,12 @@ def set_moves(c = c):
         spot[0] += width + 5
 
         font = get_font(normal_font, move_size, c)
-        set_text(values[f'ability {i} name'], font, (160, 0, 0), spot, move_max, c=c)
+        set_text(values[f'move {i} name'], font, (160, 0, 0), spot, move_max, c=c)
         spot[0] = startx + 30
         spot[1] += move_size + 10
 
         font = get_font(normal_font, description_size, c)
-        text = values[f'ability {i} desc']
+        text = values[f'move {i} desc']
         set_text(text, font, (0, 0, 0), spot, card_shape[0] - spot[0] - 60, c=c)
 
         size = textbox_shape(text, font, card_shape[0] - spot[0] - 60)
@@ -258,8 +262,8 @@ def set_moves(c = c):
         spot[1] += int(height + 30)
     
     for val in range(1, 4):
-        if f'move {val} name' not in values:
-            break
+        if values[f'move {val} type'] != 'move':
+            continue
         # title of a move
         font = get_font(big_font, move_size, c)
         set_text(values[f'move {str(val)} name'], font, (0, 0, 0), spot, move_max, c=c)
@@ -282,7 +286,7 @@ def set_moves(c = c):
 
         #move damage type and stuff
         spot[0] = card_shape[0] - 25 - energy_size
-        if 'move ' + str(val) + ' damage' in values and values['move ' + str(val) + ' damage'] != '0':
+        if values['move ' + str(val) + ' damage'] != '':
             file = filter(str.isdecimal, values['move ' + str(val) + ' damage'])
             damage = "".join(file)
             damage_type = values['existing types'][contains_data(values['move ' + str(val) + ' damage'], values['existing types'])]
@@ -393,7 +397,7 @@ def set_evolution(c = c):
     ring_width = 2 * ring_size + size[0]
 
 
-    if ('prevolve' in values):
+    if values['prevolve'] != '':
         value = values['prevolve']
         c.execute('''SELECT name, prevolve, image, crop1, crop2, crop3, crop4 FROM get_cards_infos
                     WHERE name = ?''', (values['prevolve'],))
@@ -514,7 +518,11 @@ def set_description():
 def textbox_shape(text, font, width):
     draw = ImageDraw.Draw(image)
     size = draw.textlength(text, font=font)
-    pixels_per_letter = size / len(text)
+    size_backup = draw.textlength('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ', font=font)
+    if len(text) == 0:
+        pixels_per_letter = size_backup / len('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
+    else:
+        pixels_per_letter = size / len(text)
     lines = textwrap.wrap(text, width=math.ceil(width / pixels_per_letter))
     new_text = ""
     for line in lines:
@@ -579,15 +587,33 @@ def set_default(c = c):
     values['rarity'] = 'common'
     values['type'] = ['neutral']
     values['passive'] = "None"
+
+    values['prevolve'] = ''
+    
     values['move 1 name'] = 'moveless'
     values['move 1 desc'] = 'no description'
     values['move 1 damage'] = '20 neutral'
     values['move 1 cost'] = ['0 neutral']
+    values['move 1 type'] = 'move'
+
+    values['move 2 name'] = ''
+    values['move 2 desc'] = ''
+    values['move 2 damage'] = ''
+    values['move 2 cost'] = []
+    values['move 2 type'] = 'inactive'
+
+    values['move 3 name'] = ''
+    values['move 3 desc'] = ''
+    values['move 3 damage'] = ''
+    values['move 3 cost'] = []
+    values['move 3 type'] = 'inactive'
+
     values['retreat'] = '0'
     values['entry'] = '0'
-    values['description'] = 'bitch lasagne'
+    values['description'] = 'no description'
     values['illustrator'] = 'no illustrator'
     values['image'] = get_asset('nameless', c)
+    values['crop'] = ''
 
     return values
 
@@ -597,8 +623,8 @@ def store_card(c = c, conn = conn):
     if values['name'] == 'nameless':
         return
 
-    crop = values['crop'] if 'crop' in values else [None, None, None, None]
-    prevolve = values['prevolve'] if 'prevolve' in values else None
+    crop = values['crop'] if values['crop'] != '' else [None, None, None, None]
+    prevolve = values['prevolve'] if values['prevolve'] != '' else None
 
     ## remove old card types
     c.execute("""DELETE FROM cardsXtypes
@@ -643,61 +669,59 @@ def store_card(c = c, conn = conn):
     for i in range(1, num_moves+1):
         if values[f'move {i} name'] == 'moveless':
             continue
-        if f'move {i} damage' not in values: 
-            damage = None
-            damageType = 'neutral'
-        else:
-            damage = values[f'move {i} damage'].split(' ')[0]
-            damageType = values[f'move {i} damage'].split(' ')[1]
+        if values[f'move {i} type'] == 'move':
+            if values[f'move {i} damage'] == '': 
+                damage = None
+                damageType = 'neutral'
+            else:
+                damage = values[f'move {i} damage'].split(' ')[0]
+                damageType = values[f'move {i} damage'].split(' ')[1]
 
-        c.execute("""INSERT INTO Moves (moveName, damage, description, isAbility, typeID) 
-                    SELECT ?, ?, ?, 0, t.typeID
-                    FROM Types t
-                    WHERE t.type = ?
-                    ON CONFLICT (moveName) DO UPDATE SET
-                    moveName = excluded.moveName,
-                    damage = excluded.damage,
-                    description = excluded.description,
-                    isAbility = excluded.isAbility,
-                    typeID = excluded.typeID;""", (values[f'move {i} name'], damage, values[f'move {i} desc'], damageType))
-        
-        # remove old cost
-        c.execute("""DELETE FROM MoveCosts
-                WHERE moveID = (SELECT moveID FROM Moves WHERE moveName = ?);""", (values[f'move {i} name'],))
-        
-        for cost in values[f'move {i} cost']:
-            c.execute("""INSERT INTO MoveCosts (moveID, typeID, amount, volatile)
-                        SELECT m.moveID, t.typeID, ?, ?
+            c.execute("""INSERT INTO Moves (moveName, damage, description, isAbility, typeID) 
+                        SELECT ?, ?, ?, 0, t.typeID
                         FROM Types t
-                        JOIN Moves m ON m.moveName = ?
-                        WHERE t.type = ?;""", (cost.split(' ')[0], 1 if 'volatile' in cost else 0, values[f'move {i} name'], cost.split(' ')[1]))
+                        WHERE t.type = ?
+                        ON CONFLICT (moveName) DO UPDATE SET
+                        moveName = excluded.moveName,
+                        damage = excluded.damage,
+                        description = excluded.description,
+                        isAbility = excluded.isAbility,
+                        typeID = excluded.typeID;""", (values[f'move {i} name'], damage, values[f'move {i} desc'], damageType))
             
-        ## link card to move
-        c.execute("""INSERT INTO cardsXMoves (cardID, moveID)
-                    SELECT c.cardID, m.moveID
-                    FROM Moves m
-                    JOIN Cards c ON c.name = ?
-                    WHERE m.moveName = ?;""", (values['name'], values[f'move {i} name']))
-                  
+            # remove old cost
+            c.execute("""DELETE FROM MoveCosts
+                    WHERE moveID = (SELECT moveID FROM Moves WHERE moveName = ?);""", (values[f'move {i} name'],))
             
-    ## store card abilities
-    num_abilities = max([int(''.join(filter(str.isdigit, key))) for key in values.keys() if key.startswith('ability')] + [0])
-    for i in range(1, num_abilities+1):
-        if values[f'ability {i} name'] == 'moveless':
-            continue
-        c.execute("""INSERT INTO Moves (moveName, description, isAbility) 
-                    VALUES (?, ?, 1)
-                    ON CONFLICT (moveName) DO UPDATE SET
-                    moveName = excluded.moveName,
-                    description = excluded.description,
-                    isAbility = excluded.isAbility;""", (values[f'ability {i} name'], values[f'ability {i} desc']))
-        
-        ## link card to ability
-        c.execute("""INSERT INTO cardsXMoves (cardID, moveID)
-                    SELECT c.cardID, m.moveID
-                    FROM Moves m
-                    JOIN Cards c ON c.name = ?
-                    WHERE m.moveName = ?;""", (values['name'], values[f'ability {i} name']))
+            for cost in values[f'move {i} cost']:
+                c.execute("""INSERT INTO MoveCosts (moveID, typeID, amount, volatile)
+                            SELECT m.moveID, t.typeID, ?, ?
+                            FROM Types t
+                            JOIN Moves m ON m.moveName = ?
+                            WHERE t.type = ?;""", (cost.split(' ')[0], 1 if 'volatile' in cost else 0, values[f'move {i} name'], cost.split(' ')[1]))
+                
+            ## link card to move
+            c.execute("""INSERT INTO cardsXMoves (cardID, moveID)
+                        SELECT c.cardID, m.moveID
+                        FROM Moves m
+                        JOIN Cards c ON c.name = ?
+                        WHERE m.moveName = ?;""", (values['name'], values[f'move {i} name']))
+
+        elif values[f'move {i} type'] == 'ability':        
+            if values[f'move {i} name'] == 'moveless':
+                continue
+            c.execute("""INSERT INTO Moves (moveName, description, isAbility) 
+                        VALUES (?, ?, 1)
+                        ON CONFLICT (moveName) DO UPDATE SET
+                        moveName = excluded.moveName,
+                        description = excluded.description,
+                        isAbility = excluded.isAbility;""", (values[f'move {i} name'], values[f'move {i} desc']))
+            
+            ## link card to ability
+            c.execute("""INSERT INTO cardsXMoves (cardID, moveID)
+                        SELECT c.cardID, m.moveID
+                        FROM Moves m
+                        JOIN Cards c ON c.name = ?
+                        WHERE m.moveName = ?;""", (values['name'], values[f'move {i} name']))
         
     # put the finished card in the database
     c.execute("SELECT * FROM get_cards WHERE name = ?", (values['name'],))
@@ -718,18 +742,8 @@ def store_card(c = c, conn = conn):
 
 # stores all data from text file in a dictionary for look up
 def generate_dict(name, c=c):
-    values = {}
 
-    # get all types
-    c.execute('''SELECT type, colorR, colorG, colorB from Types''')
-    types = c.fetchall()
-    values['existing types'] = [card_type[0] for card_type in types]
-    values['colors'] = {card_type[0]: (card_type[1], card_type[2], card_type[3]) for card_type in types}
-
-    # get uniqueness
-    c.execute('''SELECT rarity from Rarities''')
-    rarities = c.fetchall()
-    values['existing rarities'] = [rarity[0] for rarity in rarities]
+    values = set_default(c)
 
     try:
         c.execute('''SELECT * FROM get_cards_infos
@@ -772,48 +786,36 @@ def generate_dict(name, c=c):
 
         c.execute('''SELECT * FROM get_moves 
                     WHERE name = ?
+                    ORDER BY isAbility DESC
                 ''', (name,))         
         data = c.fetchall()
 
-        abilitynr = 1
-        movenr = 1
+        i = 0
         for value in data:
+            i += 1
             if value[4] == 1:
-                values[f'ability {abilitynr} name'] = value[0]
-                values[f'ability {abilitynr} desc'] = value[3]
-                abilitynr += 1
+                values[f'move {i} name'] = value[0]
+                values[f'move {i} desc'] = value[3]
+                values[f'move {i} type'] = 'ability'
             else:
-                values[f'move {movenr} name'] = value[0]
+                values[f'move {i} name'] = value[0]
                 if value[2] != None and value[2] != 0 and value[2] != '':
-                    values[f'move {movenr} damage'] = f'{value[2]} {value[1]}'
-                values[f'move {movenr} desc'] = value[3]
+                    values[f'move {i} damage'] = f'{value[2]} {value[1]}'
+                values[f'move {i} desc'] = value[3]
+                values[f'move {i} type'] = 'move'
 
                 c.execute('''SELECT * FROM get_move_costs    
                     WHERE name = ?
-                ''', (values[f'move {movenr} name'],))
+                ''', (values[f'move {i} name'],))
                 costs = c.fetchall()
 
-                values[f'move {movenr} cost'] = [f'{value[1]} {value[0]}{"" if value[2] == 0 else " volatile"}' for value in costs]
+                values[f'move {i} cost'] = [f'{value[1]} {value[0]}{"" if value[2] == 0 else " volatile"}' for value in costs]
 
-                movenr += 1  
     except Exception as e:
         print('Card not found or error in database. Using default values. ', e)
         values = set_default()  
     return values
 
-
-def generate_effect_dict(file):
-    values = {}
-
-    for line in file:
-        line = line.replace('\n', '')
-        line = re.sub(' +', ' ', line)
-        data = line.split(': ')
-        data = [value for value in data if value != '']
-
-        datatype = data[0]
-
-    return values
 
 def generate_effect_card(new_values, editor_mode=False):
     global image
@@ -873,10 +875,7 @@ def generate_card_from_db(name, c=c, conn=conn):
 
         except sqlite3.Error as error:
             print(f"Failed to insert image into sqlite table: {error}")
-
-def swap_db_connection(new_conn):
-    global c
-    c = new_conn.cursor()
+            
 
 def preview_card(card_values, conn=conn, editor_mode=False, save_to_db=False):
     global image
@@ -888,6 +887,8 @@ def preview_card(card_values, conn=conn, editor_mode=False, save_to_db=False):
     do_prints = not editor_mode
 
     values = card_values
+
+    #print({k:v for k,v in values.items() if k not in ['image']})
 
     procedural_card(c)
 
