@@ -331,7 +331,7 @@ values = main.set_default(c)
 
 
 window.protocol("WM_DELETE_WINDOW", on_closing)
-if platform.system() == 'Windows':
+if platform.system() == 'Windows' or platform.system() == 'MAC':
     window.bind("<Button-4>", go_back)
     window.bind("<Button-5>", go_forward)
 elif platform.system() == 'Linux':
@@ -463,7 +463,7 @@ def on_mousewheel_linux_down(event):
         pass  # Ignore the error and prevent crashing
 
     
-if platform.system() == 'Windows':
+if platform.system() == 'Windows' or platform.system() == 'MAC':
     scroll_canvas.bind_all("<MouseWheel>", on_mousewheel_windows)
 elif platform.system() == 'Linux':
     scroll_canvas.bind_all("<Button-4>", on_mousewheel_linux_up)
@@ -1594,7 +1594,10 @@ update_thread.start()
 
 ## window mainloop ##
 
-window.geometry('2400x1200')
+width = window.winfo_screenwidth()
+height = window.winfo_screenheight()
+
+window.geometry(f'{int(width*0.5)}x{int(height*0.5)}')
 window.update()
 
 update_canv = False
